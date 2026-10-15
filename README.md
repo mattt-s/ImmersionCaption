@@ -20,7 +20,7 @@ A native macOS app for learning English while listening to Mandarin audio from o
 - Finalized recognition requests only, with draft previews, duplicate-final protection, and no character-count or punctuation cuts; a three-item pending queue; cancellation/generation checks that reject late results.
 - Natural-pause detection to finish native requests earlier during playback, including audio sources that stop delivering buffers; translation still waits for genuine finals.
 
-These features are implemented; build, automated tests, and basic launch have been verified. The remaining manual acceptance checks are listed below. Embedded inference and model management are planned, not implemented.
+Build, automated tests, basic launch, and pause-triggered genuine finals on a short synthesized Mandarin fixture have been verified. The remaining manual acceptance checks are listed below. Embedded inference and model management are planned, not implemented.
 
 ## Architecture
 
@@ -147,7 +147,7 @@ The speech check writes a temporary public Mandarin fixture with the installed T
 - Captures a global stereo mix of application output using a private, tap-only aggregate device, without changing your default audio devices. This process is excluded when it already has a Core Audio process object; the app itself does not play audio. There is no per-app selector, audio mixing control, or multi-display subtitle selector. If the tap format changes after switching an output device, translation stops with a restart message rather than decoding buffers with the wrong format.
 - Protected/DRM content or some application audio may be unavailable to capture.
 - The legacy Speech framework may end recognition or return service errors. Requests restart on final results and rotate periodically; unexpected errors stop the session visibly. Long-duration and silent-input behavior need device testing.
-- Final-only mode can still produce long waits and long translation inputs when music or uninterrupted speech prevents pause detection. The fixed audio threshold may need tuning for quiet material. Recognition errors in a finalized result still reach the translator; finalization is not a correctness guarantee. Native finalization/continuous handoff behavior needs device acceptance.
+- Final-only mode can still produce long waits and long translation inputs when music or uninterrupted speech prevents pause detection. The fixed audio threshold may need tuning for quiet material. Recognition errors in a finalized result still reach the translator; finalization is not a correctness guarantee. The native fixture check passes; sustained handoff with actual recordings still needs listening acceptance.
 - The overlay supports presets, not dragging. Long text may scale down or be truncated within its bounded panel; use shorter phrases/smaller fonts.
 - No user-facing audio playback, learned speech/noise separation, translation streaming, glossary, language learning analytics, or global shortcuts. Pause detection currently uses audio energy only.
 - No third-party source-package dependencies or analytics. The app stores preferences and explicitly exported history only; macOS/Ollama may have their own service logs.
