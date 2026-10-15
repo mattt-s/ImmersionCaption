@@ -67,7 +67,7 @@ The legacy recognizer emits cumulative hypotheses and speech-unit timestamps; on
 
 These cues bound phrase size without assuming that a short silence guarantees semantic completeness. They use ASR timing and text stability, not a raw-audio VAD or a second inference pass. Translations receive two earlier phrases as context and are prompted for concise, idiomatic language without dropping meaning.
 
-Once committed, text is not retracted. If earlier text changes length, consumed word timestamps realign the pending text to already-heard audio; providers without timings retain positional fallback. Revised/merged ASR word boundaries remain an edge case. Tests cover timing gaps, rapid continuous speech, proper names, earlier revisions, UTF-16/emoji, invalid ranges, numeric punctuation, stable flushes, and no lost source characters across bounded chunks.
+Once committed, text is not retracted. If earlier text changes length, consumed word timestamps realign the pending text to already-heard audio; missing/all-zero timings use `TranscriptCursor` to align the consumed character boundary through a text diff. All-zero timestamps must not establish an audio watermark. The text fallback anchors on matched content characters, then adjacent separators: matching a common full stop at the end of newly appended text must not discard new speech. A fully rewritten transcript without anchors uses a conservative positional fallback. Revised/merged ASR word boundaries remain an edge case. Tests cover timing gaps, rapid continuous speech, proper names, earlier revisions, UTF-16/emoji, invalid ranges, numeric punctuation, stable flushes, and no lost source characters across bounded chunks.
 
 Requests rotate after 45 seconds, flushing the most recent hypothesis and starting a new request. There is no overlap buffer, so transition audio loss remains possible. A future timestamp-aware segmentation/VAD pipeline can improve this without changing translation/UI contracts.
 
@@ -75,13 +75,13 @@ Non-streamed short translations avoid displaying incomplete English sentences an
 
 ## Translation policy
 
-The current adapter uses TranslateGemma's documented single user message, Chinese `zh-Hans` → English `en`, and its source separator. Guidance prioritizes natural conversational English, idiom meaning, tone, fidelity, and no added facts. Two previously translated pairs provide limited context, explicitly separated from the current source. Output is accepted only after a complete nonempty response; token-limit truncation is an error.
+The current adapter uses TranslateGemma's documented single user message, Chinese `zh-Hans` → English `en`, and its source separator. Guidance prioritizes natural conversational English, idiom meaning, tone, fidelity, and no added facts. Two previously translated pairs provide limited context, explicitly separated from the current source. The prompt requests one translation of the current fragment, no alternatives or repetition of context, no invented continuation, and preservation of narrative subjects. Temperature is 0 to reduce sampling variation; context changes and backend differences can still change wording. Output is accepted only after a complete nonempty response; token-limit truncation is an error. One response can legitimately contain multiple English sentences; it always creates just one caption entry.
 
 Context can help ambiguous words but also propagate earlier mistakes. It is cleared on lifecycle transitions and when history is cleared. There is no claim that prompting guarantees semantic fidelity or native fluency. Human-reviewed regression fixtures record real weaknesses.
 
 ## Privacy boundary
 
-The app does not configure a microphone and registers no microphone stream output. It discards screen video, stores no raw audio, and retains at most 300 captions in memory. History export is user initiated. Logs describe lifecycle/failure categories only, not recognized or translated content.
+The app does not configure a microphone and registers no microphone stream output. It never opens a screen-capture stream, stores no raw audio, and retains at most 300 captions in memory. History export is user initiated. Logs describe lifecycle/failure categories only, not recognized or translated content.
 
 The Ollama adapter accepts explicit HTTP loopback URLs, disables proxy configuration, and rejects redirects. This confines the application's HTTP transport; a locally configured server could itself forward data. Users must run trusted Ollama with a genuinely local model. Initial setup/model downloads can require internet. Offline operation requires both Apple's language assets and the translation weights/runtime to be available beforehand.
 

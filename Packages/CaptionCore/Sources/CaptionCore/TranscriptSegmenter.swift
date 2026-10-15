@@ -6,6 +6,7 @@ import Foundation
 public struct TranscriptSegmenter {
     private var committed = ""
     private var committedEndTime: TimeInterval?
+    private var alignedConsumedCharacters = 0
     private var hypothesis = ""
     private var words: [(value: SpeechSegment, range: Range<String.Index>)] = []
     public let maximumCharacters: Int
@@ -29,6 +30,7 @@ public struct TranscriptSegmenter {
 
     /// Ranges refer to the untrimmed cumulative text. Invalid timing/ranges are ignored safely.
     public mutating func ingest(_ text: String, isFinal: Bool, segments: [SpeechSegment] = []) -> [String] {
+        alignedConsumedCharacters = TranscriptCursor.align(alignedConsumedCharacters, from: hypothesis, to: text)
         hypothesis = text
         words = segments.compactMap { segment in
             guard segment.startTime.isFinite, segment.duration.isFinite,
@@ -49,6 +51,7 @@ public struct TranscriptSegmenter {
     public mutating func reset() {
         committed = ""
         committedEndTime = nil
+        alignedConsumedCharacters = 0
         hypothesis = ""
         words.removeAll()
     }
@@ -61,7 +64,9 @@ public struct TranscriptSegmenter {
                   let end = boundary(after: start, flush: flush), end > start else { break }
             let phrase = String(hypothesis[start..<end]).trimmingCharacters(in: .whitespacesAndNewlines)
             committed = String(hypothesis[..<end])
-            if let time = words.filter({ $0.range.upperBound <= end }).map({ $0.value.endTime }).max() {
+            alignedConsumedCharacters = committed.count
+            if let time = words.filter({ $0.range.upperBound <= end && $0.value.endTime > 0 })
+                .map({ $0.value.endTime }).max() {
                 committedEndTime = max(committedEndTime ?? 0, time)
             }
             let hasContent = phrase.unicodeScalars.contains {
@@ -79,7 +84,7 @@ public struct TranscriptSegmenter {
         }
         // An earlier word can change length after commitment. Timing anchors avoid replaying
         // old speech or losing a new word merely because UTF-16 positions shifted.
-        if let time = committedEndTime, !words.isEmpty {
+        if let time = committedEndTime, words.contains(where: { $0.value.endTime > 0 }) {
             let oldWords = words.filter { $0.value.startTime < time - 0.01 }
             var start = oldWords.map { $0.range.upperBound }.max() ?? hypothesis.startIndex
             while start < hypothesis.endIndex,
@@ -91,8 +96,9 @@ public struct TranscriptSegmenter {
             }
             return start
         }
-        // Providers without timestamps retain positional alignment as a conservative fallback.
-        return hypothesis.index(hypothesis.startIndex, offsetBy: min(committed.count, hypothesis.count))
+        // All-zero timings contain no audio-position information. Follow unchanged text
+        // anchors across revisions instead of treating zero as a consumed audio watermark.
+        return hypothesis.index(hypothesis.startIndex, offsetBy: min(alignedConsumedCharacters, hypothesis.count))
     }
 
     private func boundary(after start: String.Index, flush: Bool) -> String.Index? {

@@ -138,6 +138,30 @@ final class CaptionSessionTests: XCTestCase {
         engine.complete("Let's leave it there for today.")
     }
 
+    func testRevisedZeroTimedTranscriptDoesNotEnqueueOldClausesAgain() async {
+        let speech = FakeSpeech()
+        let engine = HeldTranslator()
+        let session = CaptionSession(capture: FakeCapture(), speech: speech, translator: engine,
+                                     stableDelay: 5_000_000_000)
+        await session.start()
+        let original = "他笑着说马上就去安排，大家发现他今天特别高兴，老板也看到了表现的机会，"
+        func zeroTiming(_ text: String) -> [SpeechSegment] {
+            [SpeechSegment(range: NSRange(location: 0, length: text.utf16.count), startTime: 0, duration: 0)]
+        }
+        speech.emit(original, segments: zeroTiming(original))
+        await waitUntil { engine.requests.count == 1 }
+        let pendingBefore = session.pendingPhrases
+        let revised = "他笑着说马上就去安排，大家发现他今天特别高兴还一直哼着歌，老板也看到了表现的机会，"
+        speech.emit(revised, segments: zeroTiming(revised))
+        XCTAssertEqual(session.pendingPhrases, pendingBefore)
+        XCTAssertEqual(session.droppedPhrases, 0)
+        engine.complete("He said he'd arrange it right away.")
+        await waitUntil { engine.requests.count == 2 }
+        XCTAssertEqual(engine.requests[1].source, "大家发现他今天特别高兴，")
+        await session.stop()
+        engine.complete("They noticed he was in a good mood.")
+    }
+
     private func waitUntil(_ predicate: () -> Bool, file: StaticString = #filePath, line: UInt = #line) async {
         for _ in 0..<200 {
             if predicate() { return }

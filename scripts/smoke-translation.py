@@ -1,6 +1,6 @@
 """Exercise installed TranslateGemma against public fixtures using production Swift prompts.
 
-This tests the local service/prompt, not the uncompiled Swift HTTP adapter or audio pipeline.
+This tests the local service/prompt, not the Swift HTTP adapter or audio pipeline.
 Uses only the Python standard library and an explicit loopback connection without redirects.
 """
 import http.client
@@ -18,7 +18,7 @@ for case in fixtures:
         "messages": [{"role": "user", "content": prompt}],
         "stream": False,
         "keep_alive": "5m",
-        "options": {"temperature": 0.2, "num_ctx": 4096, "num_predict": 384},
+        "options": {"temperature": 0.0, "num_ctx": 4096, "num_predict": 384},
     }
     connection = http.client.HTTPConnection("127.0.0.1", 11434, timeout=75)
     started = time.monotonic()

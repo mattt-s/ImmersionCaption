@@ -13,10 +13,13 @@ final class OllamaTranslationEngineTests: XCTestCase {
             let body = try XCTUnwrap(JSONSerialization.jsonObject(with: data) as? [String: Any])
             XCTAssertEqual(body["model"] as? String, "translategemma:4b")
             XCTAssertEqual(body["stream"] as? Bool, false)
+            let options = try XCTUnwrap(body["options"] as? [String: Any])
+            XCTAssertEqual(options["temperature"] as? Double, 0)
             let messages = try XCTUnwrap(body["messages"] as? [[String: String]])
             XCTAssertEqual(messages.count, 1)
             XCTAssertEqual(messages.first?["role"], "user")
             XCTAssertTrue(messages.first?["content"]?.contains("别着急") == true)
+            XCTAssertTrue(messages.first?["content"]?.contains("with no alternative versions") == true)
             return (200, #"{"done":true,"message":{"content":"Take your time."}}"#)
         }
         let result = try await makeEngine().translate(TranslationInput(source: "别着急"))

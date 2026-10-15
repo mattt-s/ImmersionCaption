@@ -75,7 +75,7 @@ private struct ChatRequest: Encodable {
 
     struct Message: Encodable { let role: String; let content: String }
     struct Options: Encodable {
-        let temperature = 0.2
+        let temperature = 0.0
         let num_ctx = 4096
         let num_predict = 384
     }

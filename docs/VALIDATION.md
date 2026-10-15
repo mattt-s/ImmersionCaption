@@ -2,6 +2,19 @@
 
 Initial development and subsequent build verification: 2026-10-15 (Asia/Tokyo).
 
+## Version 0.3.1: replayed clauses and translation consistency
+
+Changes implemented on 2026-10-15:
+
+- A synthetic replay of the reported pattern reproduced an app-side defect: a cumulative transcript with all-zero word timings first committed three clauses; an earlier text revision then re-emitted all three. Zero had been treated as a valid consumed-audio watermark, so revision alignment returned to the start. The caption export alone does not prove that the live recognizer supplied these exact timings; no raw-audio or transcript logging was introduced.
+- All-zero timings no longer establish an audio watermark. A small `TranscriptCursor` text-diff helper follows the consumed boundary across earlier insertions/deletions when useful timings are absent. Content characters anchor the cursor before adjacent punctuation, preventing a matched full stop in newly appended speech from swallowing the new tail. Ambiguous/fully rewritten text and revised timing boundaries remain heuristic. Already displayed translations are not replaced retroactively.
+- Added five domain regressions for zero-timed revisions, missing timings plus newly appended speech, loss of previously valid timings, legitimate repeated speech, and emoji/deletion alignment. Added one session regression proving repeated revisions do not enqueue old clauses for translation. No global string deduplication was added.
+- The translation prompt now explicitly requests one translation of the current fragment, no alternatives/context repetition or invented continuation, and preservation of narrative roles. Temperature changed from 0.2 to 0 in both the production request and public-fixture smoke script. The HTTP contract test checks the option and instruction. These controls reduce sampling variability; they do not guarantee identical results with different context or correct mistranscribed input.
+- **30 domain tests and 23 app/session/adapter tests passed: 53 total, zero failures**, including a real local TranslateGemma request (approximately 4.43 seconds; not audio latency).
+- Eight public quality fixtures completed through the production prompt and local model at temperature 0, approximately 0.40–1.00 seconds each. This was a text-only spot check, not a fluency score: the model preserved the positive intent of 求之不得 in a clear complete sentence but used the overly strong “desperate”; other fixtures still showed nuance errors (such as “take a closer look” for 再看看). Narration subjects were preserved in the added waiter/boss fixture. A response legitimately contained two English sentences, demonstrating that sentence count within one response differs from replayed caption entries.
+
+Release build, signature verification, archive integrity, new-instance launch/window checking, and the 24-check compatibility runner passed. The same synthetic replay probe now emits no old clauses after revision. The original recording still needs an interactive replay to confirm whether this fix resolves every observed duplicate and to assess speech-recognition accuracy; garbled text such as the reported 当场陨落 cannot be confidently repaired without the audio.
+
 ## Version 0.3.0: system audio permission only
 
 Changes implemented on 2026-10-15:
