@@ -17,6 +17,8 @@
 - Add documentation comments for protocols, public APIs, and nontrivial behavior. Explain ownership and synchronization at concurrency boundaries.
 - Cancel tasks and invalidate session generations on pause, stop, or error. Never publish stale results.
 - Bound live queues and history. Surface dropped work rather than allowing unbounded latency.
+- Keep captions concise by segmenting speech, not by truncating or summarizing translations. Combine punctuation, valid UTF-16 word timing, pause thresholds, duration/length targets, and stable-text fallback; pauses alone are not proof of a sentence ending. Preserve whole recognized words and test earlier ASR revisions and invalid timing ranges.
+- Keep Resources/Artwork/AppIcon.png as the icon build source. Generate native sizes with scripts/build-icon.sh and include the ICNS before signing; document a replacement asset's provenance/prompt.
 
 ## Verification and delivery
 

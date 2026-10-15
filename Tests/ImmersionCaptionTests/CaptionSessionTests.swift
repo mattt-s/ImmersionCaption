@@ -124,6 +124,20 @@ final class CaptionSessionTests: XCTestCase {
         engine.complete("Take your time.")
     }
 
+    func testWordTimingTriggersAShortCaptionBeforeTheStableTimeout() async {
+        let speech = FakeSpeech()
+        let engine = HeldTranslator()
+        let session = CaptionSession(capture: FakeCapture(), speech: speech, translator: engine, stableDelay: 5_000_000_000)
+        await session.start()
+        let segments = [SpeechSegment(range: NSRange(location: 0, length: 5), startTime: 0, duration: 0.7),
+                        SpeechSegment(range: NSRange(location: 5, length: 7), startTime: 1.1, duration: 0.7)]
+        speech.emit("今天先这样我们明天再讨论", segments: segments)
+        await waitUntil { engine.requests.count == 1 }
+        XCTAssertEqual(engine.requests.first?.source, "今天先这样")
+        await session.stop()
+        engine.complete("Let's leave it there for today.")
+    }
+
     private func waitUntil(_ predicate: () -> Bool, file: StaticString = #filePath, line: UInt = #line) async {
         for _ in 0..<200 {
             if predicate() { return }
@@ -168,7 +182,9 @@ private final class FakeSpeech: SpeechRecognizing {
         if holdStartup { await withCheckedContinuation { startup = $0 } }
     }
     func stop() { callback = nil; failure = nil }
-    func emit(_ text: String) { callback?(TranscriptEvent(utteranceID: utteranceID, text: text, isFinal: false)) }
+    func emit(_ text: String, segments: [SpeechSegment] = []) {
+        callback?(TranscriptEvent(utteranceID: utteranceID, text: text, isFinal: false, segments: segments))
+    }
 }
 
 @MainActor

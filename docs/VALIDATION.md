@@ -2,7 +2,20 @@
 
 Initial development and subsequent build verification: 2026-10-15 (Asia/Tokyo).
 
-## Current build verification
+## Version 0.2.0: icon and shorter captions
+
+Changes implemented on 2026-10-15:
+
+- Generated an original caption-bubble app icon with the built-in image tool. The 1254×1254 transparent master lives in `Resources/Artwork/AppIcon.png`; its prompt/provenance is documented beside it. Native `sips`/`iconutil` packaging builds all ten standard representations up to 1024 pixels. The app's `CFBundleIconFile` references the bundled ICNS.
+- Short (default) targets 28 recognized characters / 3.2 seconds, with a 350 ms gap threshold. Balanced targets 44 / 4.5 seconds / 450 ms. Automatic punctuation, clause punctuation, valid UTF-16 ranges, speech-unit timing, Foundation word fallback, and 650 ms text-stability fallback are combined. A pause alone is not a semantic sentence detector, and recognition units can contain multiple words.
+- Added tests for continuous rapid speech, short/threshold pauses, earlier recognition revisions, proper names, oversized multiword ASR units, UTF-16/emoji, invalid ranges, numeric punctuation, and preserving source text across chunks. Added a session test proving timing metadata reaches the splitter before its stable-text timeout.
+- `swift test --package-path Packages/CaptionCore`: **25 tests passed**. App/session/HTTP tests with live inference enabled: **14 tests passed**. **39 total, zero failures**; a warm live local translation request completed in approximately 0.41 seconds (not an audio-latency measurement).
+- The compatibility runner passed its 24 production-domain checks. The generated native icon round-tripped through `iconutil`; all ten expected representation dimensions validated, and the app metadata points to the icon. Shell syntax, plist format, and signature checks passed for the initial 0.2 build.
+- Launch checking now requires a newly started app, rather than allowing an older running instance to mask a failure, and requires a visible window to remain for two seconds. It leaves existing app instances alone.
+
+The final 0.2 release bundle built successfully, including the icon, and passed signature verification. The updated launch check passed against a new app instance with a visible window for two seconds. The bundle is staged away from the existing build before signing, so icon/signing failures do not leave a partially updated app. Actual end-to-end audio and perceptual boundary quality still require live listening; synthetic timings and text fixtures do not establish that semantic sentence boundaries will always be correct. Raw-audio VAD is not implemented.
+
+## Initial native build verification (version 0.1)
 
 After Xcode installation and the user's license acceptance:
 

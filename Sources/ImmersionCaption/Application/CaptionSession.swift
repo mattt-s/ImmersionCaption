@@ -30,16 +30,19 @@ final class CaptionSession: ObservableObject {
     private var stableDraft: Task<Void, Never>?
     private var expiration: Task<Void, Never>?
     private let stableDelay: UInt64
+    private let captionLength: () -> CaptionLength
     private var transitions = 0 {
         didSet { isTransitioning = transitions > 0 }
     }
 
     init(capture: SystemAudioCapturing, speech: SpeechRecognizing,
-         translator: TranslationEngine, stableDelay: UInt64 = 1_000_000_000) {
+         translator: TranslationEngine, stableDelay: UInt64 = 650_000_000,
+         captionLength: @escaping () -> CaptionLength = { .short }) {
         self.capture = capture
         self.speech = speech
         self.translator = translator
         self.stableDelay = stableDelay
+        self.captionLength = captionLength
     }
 
     /// Startup is serialized with teardown so a late permission response cannot revive a stopped session.
@@ -48,6 +51,7 @@ final class CaptionSession: ObservableObject {
         transitions += 1
         defer { transitions -= 1 }
         invalidateWork()
+        segmenter = TranscriptSegmenter(profile: captionLength())
         let token = generation
         state = .starting
         errorMessage = nil
@@ -133,7 +137,7 @@ final class CaptionSession: ObservableObject {
             lastHypothesis = ""
         }
         sourceDraft = event.text
-        enqueue(segmenter.ingest(event.text, isFinal: event.isFinal))
+        enqueue(segmenter.ingest(event.text, isFinal: event.isFinal, segments: event.segments))
         guard event.text != lastHypothesis || event.isFinal else { return }
         lastHypothesis = event.text
         stableDraft?.cancel()

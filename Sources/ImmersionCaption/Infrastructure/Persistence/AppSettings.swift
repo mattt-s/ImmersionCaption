@@ -1,5 +1,6 @@
 import Foundation
 import Combine
+import CaptionCore
 
 enum SubtitlePosition: String, CaseIterable, Identifiable {
     case top, middle, bottom
@@ -14,6 +15,7 @@ final class AppSettings: ObservableObject {
     @Published var opacity: Double { didSet { defaults.set(opacity, forKey: "opacity") } }
     @Published var position: SubtitlePosition { didSet { defaults.set(position.rawValue, forKey: "position") } }
     @Published var bilingual: Bool { didSet { defaults.set(bilingual, forKey: "bilingual") } }
+    @Published var captionLength: CaptionLength { didSet { defaults.set(captionLength.rawValue, forKey: "captionLength") } }
     @Published var endpoint: String { didSet { defaults.set(endpoint, forKey: "endpoint") } }
     @Published var model: String { didSet { defaults.set(model, forKey: "model") } }
     @Published var previewOverlay = false
@@ -27,6 +29,7 @@ final class AppSettings: ObservableObject {
         opacity = storedOpacity.isFinite ? min(1, max(0.2, storedOpacity)) : 0.78
         position = SubtitlePosition(rawValue: defaults.string(forKey: "position") ?? "") ?? .bottom
         bilingual = defaults.bool(forKey: "bilingual")
+        captionLength = CaptionLength(rawValue: defaults.string(forKey: "captionLength") ?? "") ?? .short
         endpoint = defaults.string(forKey: "endpoint") ?? "http://127.0.0.1:11434"
         model = defaults.string(forKey: "model") ?? "translategemma:4b"
     }

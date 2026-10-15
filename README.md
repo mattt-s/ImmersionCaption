@@ -1,8 +1,10 @@
 # ImmersionCaption
 
+<img src="Resources/Artwork/AppIcon.png" alt="ImmersionCaption app icon" width="112" height="112">
+
 A native macOS app for learning English while listening to Mandarin audio from other applications. It turns application audio into English floating subtitles, with recognition and translation performed locally.
 
-**Status: local development app built and launched.** With Xcode 27 / Swift 6.4 installed, all 24 automated tests passed, including a real local TranslateGemma request. The release `.app` passed signature verification and opened its main window. Permission-driven audio capture, sustained transcription, and visual overlay acceptance remain to be checked interactively. See [validation evidence](docs/VALIDATION.md).
+**Status: local development app built and launched.** Version 0.2.0 adds a generated native app icon and Short/Balanced caption lengths, with regression tests for timestamp-based boundaries, ASR revisions, proper names, and invalid UTF-16 ranges. Permission-driven audio capture, sustained transcription, and visual overlay acceptance remain to be checked interactively. See [validation evidence](docs/VALIDATION.md) for current test/build results.
 
 ## Implemented in source
 
@@ -12,9 +14,10 @@ A native macOS app for learning English while listening to Mandarin audio from o
 - A natural-English translation prompt with up to two previous translated phrases as context.
 - Start, pause, resume, stop, menu bar controls, and surfaced errors.
 - Floating, click-through subtitles on the primary display; top/middle/bottom placement, font size, background transparency, and optional Chinese text.
+- A native Finder/Dock app icon, built from the generated [master artwork](Resources/Artwork/AppIcon.png).
 - Persistent preferences; memory-only history capped at 300 entries; explicit text export.
 - Text-only translation check and overlay preview for setup.
-- Stable partial-transcript flushing, bounded phrase lengths, a three-item pending translation queue, and cancellation/generation checks that reject late results.
+- Short clauses using punctuation, recognized-word pauses, word boundaries, duration/length targets, and stable-draft flushing; a three-item pending queue; cancellation/generation checks that reject late results.
 
 These features are implemented; build, automated tests, and basic launch have been verified. The remaining manual acceptance checks are listed below. Embedded inference and model management are planned, not implemented.
 
@@ -52,6 +55,8 @@ open build/ImmersionCaption.app
 
 The build script creates an ad-hoc signed development `.app` with privacy descriptions and the speech entitlement. Use that bundle for permission testing. Opening Package.swift in Xcode is useful for editing/debugging; `swift run` is not the supported permission-testing installation path.
 
+The same script builds `AppIcon.icns` from the project artwork using native macOS tools and includes it before signing. See [icon source and generation prompt](Resources/Artwork/README.md). No image-generation service is needed to build or run the app.
+
 Set `CODE_SIGN_IDENTITY` to an available development identity to use it instead of ad-hoc signing. Signed distribution, provisioning, hardened runtime, notarization, and App Store packaging have not been configured or validated. If speech authorization fails with an ad-hoc bundle, use an appropriately provisioned development identity and recheck its entitlement.
 
 To install after a successful build, copy `build/ImmersionCaption.app` into Applications. Keep one copy for permission testing so macOS does not confuse development bundles with the same identifier.
@@ -73,6 +78,7 @@ Only explicit HTTP loopback addresses are accepted. HTTP redirects and proxies a
 1. Start Mandarin playback in another app, then select **Start translating**.
 2. Allow Speech Recognition and Screen Recording / Screen & System Audio Recording when macOS requests them. The exact label depends on macOS. A microphone permission is never requested. You may need to quit/reopen the app after granting capture access.
 3. Adjust the overlay in Settings; enable **Preview subtitle overlay** to see changes during silence. Disable preview when finished.
+   Choose **Short** (default) for smaller phrases, or **Balanced** for longer context. Caption-length changes apply when you next start or resume.
 4. Pause releases capture and recognition, discards pending translations, and hides the current subtitle. Resume starts fresh recognition/context; it does not replay audio heard while paused.
 5. Stop cancels processing. Closing the main window leaves menu bar controls available. Quit from the menu bar to exit.
 
@@ -80,11 +86,19 @@ Subtitles disappear 12 seconds after their last update. History remains for the 
 
 ## Latency and translation quality
 
-Sentences are sent when a recognized punctuation boundary arrives, when a draft remains unchanged for one second, or when the recognizer finalizes/rotates. Long phrases split at 80 characters. Recognition requests rotate every 45 seconds. A small transition gap is possible because there is no overlapping audio buffer.
+The splitter combines several cues rather than assuming that every silence ends a sentence:
+
+- **Short** targets 28 recognized characters or approximately 3.2 seconds of speech. It accepts gaps of at least 350 ms between recognized words after a minimum four-character phrase.
+- **Balanced** targets 44 characters or approximately 4.5 seconds, with a 450 ms word-gap threshold.
+- The speech adapter requests automatic punctuation. Chinese sentence punctuation ends a phrase immediately. Commas/colons can end clauses once they contain at least 10 characters; numeric commas and time colons are preserved.
+- Length and duration splits prefer recognized boundaries. Because the recognizer can group a whole clause into one segment, oversized/missing units fall back to Foundation word tokenization (then grapheme boundaries if needed). A long unbroken Latin proper name may exceed the target. These are soft targets, not a fixed English word count.
+- A draft unchanged for 650 ms flushes as a fallback. This is text stability, not an acoustic silence detector. Short pauses alone do not prove that the meaning is complete.
+
+Apple's [recognized-word timestamps](https://developer.apple.com/documentation/speech/sftranscriptionsegment/timestamp) supply pause/duration cues. No additional model, paid API, or raw-audio VAD dependency is added. Spoken-language boundaries remain heuristic; these thresholds are not end-to-end latency guarantees. Recognition requests still rotate every 45 seconds, with a possible gap because there is no overlapping audio buffer.
 
 Only one translation runs at a time. At most three phrases wait behind it; overflow discards the oldest pending phrase and shows a skipped-phrase count. This limits accumulated backlog, not worst-case end-to-end latency. Steady speech can still outpace the model. The first translation may take several seconds to load the model.
 
-Prompts favor natural spoken English, idiomatic equivalents, faithful meaning, and tone, with no added teaching commentary. A 4B model can still misread ambiguity, alter nuance, or translate too literally. The six public [quality cases](docs/translation-quality-cases.json) are human-review material, not an automated fluency score. Warm **text translation** requests measured 0.46–0.97 seconds across two initial runs; this excludes audio capture, ASR, segmentation, and display time.
+Prompts favor concise, natural spoken English, idiomatic equivalents, faithful meaning, and tone, with no added teaching commentary or summarization. The splitter carries the remaining speech into later captions rather than truncating it; the existing overload policy can still skip queued phrases if the model cannot keep up. A 4B model can still misread ambiguity, alter nuance, or translate too literally. The six public [quality cases](docs/translation-quality-cases.json) are human-review material, not an automated fluency score. Warm **text translation** requests measured 0.46–0.97 seconds across two initial runs; this excludes audio capture, ASR, segmentation, and display time.
 
 ## Project structure
 
@@ -96,7 +110,7 @@ Sources/ImmersionCaption/
   Application/                        engine ports and caption session orchestration
   Infrastructure/                     capture, speech, Ollama, preferences
   Presentation/                       SwiftUI controls, history, settings, AppKit overlay
-Resources/                            app identity, privacy descriptions, entitlements
+Resources/                            icon artwork, app identity, privacy descriptions, entitlements
 Tests/ImmersionCaptionTests/           lifecycle and HTTP contract tests
 scripts/                              build, environment, domain checks, local model smoke test
 docs/                                 validation results and translation review fixtures
@@ -126,7 +140,7 @@ The smoke script uses the production Swift prompt builder and a Python standard-
 - Captures aggregate application audio using the first available display filter. There is no per-app selector, audio mixing control, or multi-display subtitle selector.
 - Protected/DRM content or some application audio may be unavailable to capture.
 - The legacy Speech framework may end recognition or return service errors. Requests restart on final results and rotate periodically; unexpected errors stop the session visibly. Long-duration and silent-input behavior need device testing.
-- Partials can change after a phrase has been committed. Already displayed translations are not revised; prefix alignment can omit or split words following earlier recognition edits.
+- Partials can change after a phrase has been committed. Word timestamps help realign earlier text-length revisions without replaying consumed audio; providers without timings use positional fallback. Displayed translations cannot be corrected retroactively, and revised/merged word boundaries remain imperfect.
 - The overlay supports presets, not dragging. Long text may scale down or be truncated within its bounded panel; use shorter phrases/smaller fonts.
 - No audio replay, VAD, translation streaming, glossary, language learning analytics, or global shortcuts.
 - No third-party source-package dependencies or analytics. The app stores preferences and explicitly exported history only; macOS/Ollama may have their own service logs.

@@ -1,6 +1,7 @@
 import Foundation
 import Speech
 import CoreMedia
+import CaptionCore
 
 enum SpeechError: LocalizedError {
     case permissionDenied, localModelUnavailable
@@ -24,6 +25,7 @@ final class AppleSpeechRecognizer: SpeechRecognizing {
     private var sessionID = UUID()
     private var requestID = UUID()
     private var latestText = ""
+    private var latestSegments: [SpeechSegment] = []
     private var onTranscript: (@MainActor (TranscriptEvent) -> Void)?
     private var onFailure: (@MainActor (Error) -> Void)?
 
@@ -58,6 +60,7 @@ final class AppleSpeechRecognizer: SpeechRecognizing {
         onTranscript = nil
         onFailure = nil
         latestText = ""
+        latestSegments = []
     }
 
     private func beginRequest() {
@@ -67,20 +70,26 @@ final class AppleSpeechRecognizer: SpeechRecognizing {
         let requestToken = requestID
         let sessionToken = sessionID
         latestText = ""
+        latestSegments = []
         let request = SFSpeechAudioBufferRecognitionRequest()
         request.requiresOnDeviceRecognition = true
         request.shouldReportPartialResults = true
+        request.addsPunctuation = true
         request.taskHint = .dictation
         sink.replace(with: request)
         recognitionTask = recognizer.recognitionTask(with: request) { [weak self] result, error in
             // Apple may deliver callbacks off-main. Only value data crosses into session state.
             let text = result?.bestTranscription.formattedString
             let final = result?.isFinal ?? false
+            let segments = result?.bestTranscription.segments.map {
+                SpeechSegment(range: $0.substringRange, startTime: $0.timestamp, duration: $0.duration)
+            } ?? []
             Task { @MainActor in
                 guard let self, self.sessionID == sessionToken, self.requestID == requestToken else { return }
                 if let text {
                     self.latestText = text
-                    self.onTranscript?(TranscriptEvent(utteranceID: requestToken, text: text, isFinal: final))
+                    self.latestSegments = segments
+                    self.onTranscript?(TranscriptEvent(utteranceID: requestToken, text: text, isFinal: final, segments: segments))
                 }
                 if final {
                     self.recognitionTask?.cancel()
@@ -96,7 +105,7 @@ final class AppleSpeechRecognizer: SpeechRecognizing {
         rotation = Task { [weak self] in
             do { try await Task.sleep(nanoseconds: 45_000_000_000) } catch { return }
             guard let self, self.sessionID == sessionToken, self.requestID == requestToken else { return }
-            self.onTranscript?(TranscriptEvent(utteranceID: requestToken, text: self.latestText, isFinal: true))
+            self.onTranscript?(TranscriptEvent(utteranceID: requestToken, text: self.latestText, isFinal: true, segments: self.latestSegments))
             self.recognitionTask?.cancel()
             self.beginRequest()
         }

@@ -14,6 +14,14 @@ struct TranscriptEvent {
     let utteranceID: UUID
     let text: String
     let isFinal: Bool
+    let segments: [SpeechSegment]
+
+    init(utteranceID: UUID, text: String, isFinal: Bool, segments: [SpeechSegment] = []) {
+        self.utteranceID = utteranceID
+        self.text = text
+        self.isFinal = isFinal
+        self.segments = segments
+    }
 }
 
 /// Accepts captured audio and emits cumulative hypotheses. No cloud fallback is allowed.

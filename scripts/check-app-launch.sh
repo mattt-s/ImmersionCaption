@@ -10,5 +10,6 @@ fi
 temporary_dir="$(mktemp -d)"
 trap 'rm -rf "$temporary_dir"' EXIT
 swiftc "$project_root/scripts/AppLaunchChecks/main.swift" -o "$temporary_dir/check-app-launch"
+started_at="$(date +%s)"
 open -n "$bundle_path"
-"$temporary_dir/check-app-launch" "$bundle_path"
+"$temporary_dir/check-app-launch" "$bundle_path" "$started_at"
