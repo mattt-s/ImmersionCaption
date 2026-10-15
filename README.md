@@ -75,7 +75,7 @@ Sentences are sent when a recognized punctuation boundary arrives, when a draft 
 
 Only one translation runs at a time. At most three phrases wait behind it; overflow discards the oldest pending phrase and shows a skipped-phrase count. This limits accumulated backlog, not worst-case end-to-end latency. Steady speech can still outpace the model. The first translation may take several seconds to load the model.
 
-Prompts favor natural spoken English, idiomatic equivalents, faithful meaning, and tone, with no added teaching commentary. A 4B model can still misread ambiguity, alter nuance, or translate too literally. The six public [quality cases](docs/translation-quality-cases.json) are human-review material, not an automated fluency score. Warm **text translation** requests measured 0.46–0.83 seconds on the initial machine; this excludes audio capture, ASR, segmentation, and display time.
+Prompts favor natural spoken English, idiomatic equivalents, faithful meaning, and tone, with no added teaching commentary. A 4B model can still misread ambiguity, alter nuance, or translate too literally. The six public [quality cases](docs/translation-quality-cases.json) are human-review material, not an automated fluency score. Warm **text translation** requests measured 0.46–0.97 seconds across two initial runs; this excludes audio capture, ASR, segmentation, and display time.
 
 ## Project structure
 
@@ -117,7 +117,7 @@ The smoke test uses the production Swift prompt builder and a Python standard-li
 - Partials can change after a phrase has been committed. Already displayed translations are not revised; prefix alignment can omit or split words following earlier recognition edits.
 - The overlay supports presets, not dragging. Long text may scale down or be truncated within its bounded panel; use shorter phrases/smaller fonts.
 - No audio replay, VAD, translation streaming, glossary, language learning analytics, or global shortcuts.
-- No external dependencies or analytics. The app stores preferences and explicitly exported history only; macOS/Ollama may have their own service logs.
+- No third-party source-package dependencies or analytics. The app stores preferences and explicitly exported history only; macOS/Ollama may have their own service logs.
 - Embedded inference (for example a suitable local llama.cpp/MLX adapter), app-managed models with checksum/license/disk-space handling, and a standalone offline installer remain future work. Apple assets and Ollama models must already be installed for offline operation today.
 
 ## References and licensing

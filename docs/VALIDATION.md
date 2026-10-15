@@ -11,6 +11,7 @@ Initial development: 2026-10-15 (Asia/Tokyo).
 - Full Xcode is absent; `/Applications/Xcode.appdownload` is a placeholder, not a usable installation.
 - `xcodebuild` is unavailable with these selected tools; `xctest` is missing.
 - Ollama 0.40.4 is serving locally; `translategemma:4b` is installed (3.3 GB as reported by Ollama).
+- A read-only Speech framework probe reports `zh-CN` recognizer availability and on-device capability both `true`. Authorization remains not determined (`0`); no permission was requested and no recognition/audio capture was performed. This does not validate actual transcription or offline asset readiness.
 
 ## Checks performed
 
@@ -20,6 +21,7 @@ Initial development: 2026-10-15 (Asia/Tokyo).
 | `scripts/test-core-compat.sh` | 24 checks passed | Segmentation, revisions, no duplicate flushes, bounded queue behavior, loopback URLs, context limit, prompt separator, translation guidance, start policy |
 | Shell syntax check for scripts | Passed | Shell scripts parse |
 | Info.plist and speech entitlements validation | Passed | Property lists parse |
+| Read-only native Mandarin capability probe | Supported | Runtime advertises local zh-CN support; recording, authorization, and recognition remain untested |
 | `scripts/check-environment.sh` | Correctly refused | Installed compiler is below Swift 5.9 |
 | Core/root `swift test` | Blocked before test execution | Installed tools lack the XCTest runner; no XCTest pass is claimed |
 | Full app build and launch | Blocked | Modern compiler and ScreenCaptureKit SDK are absent |
@@ -27,7 +29,7 @@ Initial development: 2026-10-15 (Asia/Tokyo).
 
 ## Observed translation examples
 
-`scripts/smoke-translation.sh` used production TranslationPrompt output, the installed model, temperature 0.2, 4096-token context, and 384-token output limit. Timings are wall time for HTTP model requests only, without transcription/segmentation/display.
+`scripts/smoke-translation.sh` used production TranslationPrompt output, the installed model, temperature 0.2, 4096-token context, and 384-token output limit. Timings are wall time for HTTP model requests only, without transcription/segmentation/display. This first run preceded a small prompt refinement:
 
 | Chinese | Model output | Seconds |
 | --- | --- | ---: |
@@ -40,13 +42,26 @@ Initial development: 2026-10-15 (Asia/Tokyo).
 
 The idiom in row 2 means nothing is settled/it is too early to say; the output shifts that implication. Row 5 chooses “news” where “message” is more likely in an interpersonal context. Row 6 sounds fluent but “let's keep looking” better matches shopping elsewhere than “take a closer look.” These are model weaknesses, not passing semantic-quality assertions. A second pass should evaluate contextual dialogue and compare suitable local models before a learning-focused release. Do not silently rewrite model output using fixture-specific replacements.
 
+The final prompt adds general guidance to preserve negation, temporal status, tentativeness, and an idiom's social intent, and to prefer everyday conversational interpretations when context is missing. A second run using that production prompt returned:
+
+| Case | Final model output | Seconds |
+| --- | --- | ---: |
+| 1 | Don't worry, let's take it one step at a time. | 0.97 |
+| 2 | This is just starting to unfold. | 0.51 |
+| 3 | Don't stand me up. | 0.51 |
+| 4 | I'm not saying I need it today; tomorrow is fine too. | 0.69 |
+| 5 | He probably just didn't see the message, so don't worry about it too much. | 0.79 |
+| 6 | This price seems a bit too high, let's take a closer look. | 0.71 |
+
+The conversational sense of “message” improved, but case 2 remains inaccurate, case 6 remains too literal, and “probably” in case 5 conveys stronger confidence than “might.” Prompt refinement alone did not solve semantic fidelity. Both runs used isolated phrases without dialogue context and are not a broad model benchmark.
+
 ## Required before calling the app working
 
 After modern Xcode installation:
 
 1. Run both XCTest suites and build the signed application bundle. Resolve any SDK/compiler errors before launch.
 2. Grant/deny/revoke Speech and Screen/System Audio Recording permissions; verify actionable errors and retry after relaunch. Confirm no microphone request or input indicator is caused by the app.
-3. Verify `supportsOnDeviceRecognition` for zh-CN on this machine. Test with network disconnected, then without the required model assets; unavailable assets must fail explicitly.
+3. After authorization, verify actual local zh-CN transcription. The read-only capability probe already reports support, but test with network disconnected, then without the required model assets; unavailable assets must fail explicitly.
 4. Play Mandarin in Safari and another native app. Verify the subtitle output is based on system audio while the microphone is muted/disconnected, and that protected content failures are handled.
 5. Pause/resume/stop repeatedly during active capture, startup permission dialogs, silence, and slow translations. Old captions must not reappear and capture must stop.
 6. Keep the app running over multiple 45-second recognition rotations, and during several minutes of silence. Check for gaps, duplicates, errors, resource leaks, and sustained CPU/memory usage.
