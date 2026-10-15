@@ -85,6 +85,8 @@ Subtitles disappear 12 seconds after their last update. History remains for the 
 
 ## Latency and translation quality
 
+See the [current caption policy diagram and walkthrough](docs/CAPTION_POLICY.md) for the exact recognition-to-translation decisions. The current policy does not confirm partial-result stability before committing punctuation; revision alignment only tries to avoid replaying consumed speech.
+
 Translation inputs follow recognized punctuation:
 
 - If a complete sentence is already available, it is sent intact, including its commas and closing quotation marks. Sentence-ending punctuation is searched throughout the available text, without a length limit.

@@ -1,0 +1,51 @@
+flowchart TD
+    accTitle: ImmersionCaption 0.4.0 caption commitment policy
+    accDescr: Each partial or final hypothesis is processed immediately. After request continuation and revision alignment, a complete sentence takes priority. Otherwise a genuine final result commits the remaining text, or a partial can commit an eligible punctuation clause. There is no stability confirmation gate. Committed phrases enter a bounded sequential translation queue.
+
+    Event["Apple Speech callback<br/>Cumulative text + request ID<br/>Actual isFinal + optional timings"]
+    Active{"Current session/request<br/>and session running?"}
+    Ignore["Ignore stale/inactive event"]
+    Carry["On changed request ID:<br/>carry uncommitted tail<br/>reset revision/timing anchors"]
+    Align["Combine carry + current text<br/>Align consumed position<br/>Keep latest text in Hearing"]
+
+    subgraph Boundary["Decision for each remaining suffix · no stability confirmation gate"]
+        Sentence{"Recognized sentence ending<br/>anywhere in pending text?"}
+        Whole["Choose first sentence ending<br/>Keep earlier commas + closing quotes<br/>No maximum character length"]
+        Final{"Actual isFinal = true?"}
+        Tail["Choose entire remaining tail<br/>Keep its commas together"]
+        Clause{"Eligible comma / colon / semicolon<br/>at character position 10 or later?"}
+        Fragment["Choose first eligible clause ending<br/>Punctuation counts toward position<br/>Protect numeric commas / colons"]
+        Wait["Retain unfinished text<br/>Wait for another recognition event<br/>No timer or pause flush"]
+    end
+
+    Commit["Advance consumed text/timing anchors<br/>Trim phrase; skip punctuation-only output<br/>Repeat decision for any remaining suffix"]
+    Queue["Enqueue nonempty phrases<br/>At most 3 pending<br/>Overflow drops oldest pending phrase"]
+    Model["One translation at a time<br/>Current phrase + last 2 translated pairs<br/>Local Ollama · completed response only"]
+    Publish["If generation is still current:<br/>publish caption + append history<br/>No retroactive source correction"]
+    Risk["A punctuated PARTIAL can be committed<br/>on its first appearance.<br/>Revision alignment prevents some replay;<br/>it does not establish recognition stability."]
+
+    Event --> Active
+    Active -->|"No"| Ignore
+    Active -->|"Yes"| Carry
+    Carry --> Align --> Sentence
+    Sentence -->|"Yes"| Whole --> Commit
+    Sentence -->|"No"| Final
+    Final -->|"Yes"| Tail --> Commit
+    Final -->|"No"| Clause
+    Clause -->|"Yes"| Fragment --> Commit
+    Clause -->|"No"| Wait
+    Commit -->|"Next suffix, if any"| Sentence
+    Commit -->|"Collect phrases, then"| Queue
+    Queue --> Model --> Publish
+    Align -.-> Risk
+
+    classDef input fill:#eaf2ff,stroke:#3b67b1,color:#172b4d
+    classDef policy fill:#e8f5f1,stroke:#23836d,color:#153e35
+    classDef output fill:#f2ecfc,stroke:#815bb3,color:#382254
+    classDef warning fill:#fff1df,stroke:#b9822d,color:#513b16
+    classDef idle fill:#f2f5f8,stroke:#73869a,color:#26384a
+    class Event,Active,Carry,Align input
+    class Sentence,Whole,Final,Tail,Clause,Fragment,Commit policy
+    class Queue,Model,Publish output
+    class Risk warning
+    class Ignore,Wait idle

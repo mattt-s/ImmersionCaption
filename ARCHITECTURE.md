@@ -11,7 +11,7 @@ ImmersionCaption uses a small MVVM-style presentation layer with a dedicated app
 This is a component map, not a runtime sequence. Solid arrows show existing calls, observations, or policy dependencies. Each provider box pairs an application protocol with its current infrastructure adapter. The dashed arrow and gray section show the planned embedded replacement; they are not implemented. AppContainer assembles the current providers and settings and defers overlay creation until view startup. The sequence diagram below shows the actual audio-to-caption flow.
 
 - **CaptionCore** has no UI, HTTP, Speech, Core Audio, Combine, or dependency on Ollama's transport. Its `TranslationPrompt` is a named TranslateGemma policy helper; other translation models can ignore it. Values and bounded queues remain provider-neutral.
-- **Application/Ports.swift** defines `SystemAudioCapturing`, `SpeechRecognizing`, and `TranslationEngine`. Capture and speech exchange native `CMSampleBuffer` audio; the capture adapter copies HAL buffers into owning sample buffers without resampling. That boundary is intentionally macOS-specific; replaceable speech adapters must accept or convert these buffers. Transcript events carry provider-neutral `SpeechSegment` values (UTF-16 range, start time, duration), so the domain can find word gaps and keep lexical units intact. Providers may omit timings, using the text-only fallback. Translation values remain backend-independent.
+- **Application/Ports.swift** defines `SystemAudioCapturing`, `SpeechRecognizing`, and `TranslationEngine`. Capture and speech exchange native `CMSampleBuffer` audio; the capture adapter copies HAL buffers into owning sample buffers without resampling. That boundary is intentionally macOS-specific; replaceable speech adapters must accept or convert these buffers. Transcript events carry provider-neutral `SpeechSegment` values (UTF-16 range, start time, duration) for revision alignment; timings do not choose source boundaries. Providers may omit timings, using the text-only fallback. Translation values remain backend-independent.
 - **CaptionSession** is the use-case coordinator and observable view model. It owns lifecycle, punctuation segmentation, request-to-request text continuation, translation ordering, history, context, overload reporting, caption expiry, and cancellation.
 - **Infrastructure/Audio** owns `CoreAudioTapCapture`: a private, unmuted global stereo process tap and a private aggregate containing only that tap. `NSAudioCaptureUsageDescription` requests system audio access. There is no display enumeration, ScreenCaptureKit dependency/fallback, physical input device, or microphone input. The existing HAL process object is excluded when available; this app produces no playback. The adapter reads the tap’s native PCM format and copies callback memory with `PCMBufferConverter`. A format-change listener stops the session if the format changes; unchanged notifications are ignored.
 - **Infrastructure/Speech** manages local Mandarin recognition, synchronized audio append/request replacement, and periodic recognition request rotation. Runtime capability is checked before recognition; `requiresOnDeviceRecognition` is always true.
@@ -38,7 +38,7 @@ sequenceDiagram
     loop While running
         Capture->>Speech: CMSampleBuffer (capture queue)
         Speech->>Session: Cumulative hypothesis + utterance ID
-        Session->>Session: Segment / stabilize / enqueue
+        Session->>Session: Align consumed text / segment punctuation / enqueue
         Session->>Model: Phrase + last two translations
         Model-->>Session: Completed English translation
         Session->>Session: Check cancellation and generation
@@ -60,6 +60,8 @@ Apple recognition callbacks snapshot text/finality and dispatch onto MainActor. 
 One worker Task translates sequentially so context is ordered. At most three additional phrases wait; dropping the oldest pending phrase preserves newer dialogue at the expense of completeness. The caption-expiry Task is replaced/cancelled as appropriate; there is no stable-draft translation timer. A failed backend visibly stops the pipeline; there is no retry storm or cloud fallback.
 
 ## Segmentation and latency tradeoffs
+
+The [current caption policy diagram and code walkthrough](docs/CAPTION_POLICY.md) documents exact decision priority, revision alignment, request transitions, and examples. **There is no stable-prefix confirmation gate:** a punctuated partial can be committed on its first appearance. Consumed-position alignment does not establish recognition stability or retroactively correct translations.
 
 The legacy recognizer emits cumulative hypotheses and speech-unit timestamps; one unit can contain several words. `AppleSpeechRecognizer` requests automatic punctuation and copies units into `SpeechSegment` values before crossing to MainActor. Ranges reference the original formatted text in UTF-16; the domain validates them before converting to Swift string indices.
 

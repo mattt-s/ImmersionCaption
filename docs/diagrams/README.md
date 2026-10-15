@@ -1,4 +1,12 @@
-# Architecture diagram
+# Architecture and caption policy diagrams
+
+## Current caption policy
+
+[`caption-policy.mmd`](caption-policy.mmd) is the editable source for the implemented 0.4.0 recognition-to-translation decision flow. Keep its SVG and PNG exports in sync. The [policy document](../CAPTION_POLICY.md) explains exact punctuation priority, revision alignment, request transitions, queue behavior, examples, and what is not implemented. It explicitly distinguishes immediate punctuation commitment from stability confirmation.
+
+Regenerate `caption-policy.svg` and `caption-policy.png` with the commands below, substituting `caption-policy` for `architecture` in both input and output paths. The component map itself is unchanged by the addition of this policy diagram.
+
+## Component architecture
 
 `architecture.mmd` is the editable source of truth. `architecture.svg` is embedded in the project README and ARCHITECTURE.md; `architecture.png` provides a raster preview for viewers that cannot display SVG. Keep all three in sync when the architecture changes.
 

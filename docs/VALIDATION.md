@@ -2,6 +2,14 @@
 
 Initial development and subsequent build verification: 2026-10-15 (Asia/Tokyo).
 
+## Current policy documentation review: 2026-10-16
+
+- Traced the restored 0.4.0 implementation through `AppleSpeechRecognizer`, `CaptionSession`, `TranscriptSegmenter`, `TranscriptCursor`, `BoundedQueue`, and the Ollama adapter/prompt; checked the documented examples against existing segmentation and continuation test expectations.
+- Added [the current caption policy walkthrough](CAPTION_POLICY.md) and editable/rendered decision diagram. It distinguishes immediate punctuation commitment from recognition stability, details genuine-final handling and revision alignment, and marks researched stability mechanisms as not implemented.
+- Corrected the architecture sequence's obsolete “stabilize” label and its description of timing metadata: current timings align revisions rather than select word-gap cuts.
+- Rendered the new Mermaid source with cached Mermaid CLI 12.0.0, parsed the SVG XML, inspected the PNG for clipped labels/overlapping edges, and checked local links and Git whitespace. The component diagram remains unchanged.
+- Documentation only: runtime sources, app version, and installed/built app are unchanged. App tests/build/live audio checks were not rerun for this update; earlier test counts below are historical results, not fresh executions.
+
 ## Version 0.4.0: punctuation boundaries without forced cuts
 
 Changes implemented on 2026-10-15:
