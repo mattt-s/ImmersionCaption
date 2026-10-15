@@ -8,31 +8,25 @@ let deadline = Date().addingTimeInterval(10)
 var visibleSince: Date?
 while Date() < deadline {
     let applications = NSRunningApplication.runningApplications(withBundleIdentifier: "app.ImmersionCaption")
-    // A working app can open on another Space or restore a minimized window. Inspect
-    // all window metadata rather than requiring it to be on the caller's current screen.
-    let windows = CGWindowListCopyWindowInfo([.optionAll, .excludeDesktopElements], kCGNullWindowID) as? [[String: Any]] ?? []
-    var hasApplicationWindow = false
+    let windows = CGWindowListCopyWindowInfo([.optionOnScreenOnly, .excludeDesktopElements], kCGNullWindowID) as? [[String: Any]] ?? []
+    var hasVisibleWindow = false
     for application in applications where application.bundleURL?.resolvingSymlinksInPath().path == bundlePath &&
         (application.launchDate ?? .distantPast) >= startedAt {
-        let applicationWindows = windows.filter { window in
-            guard (window[kCGWindowOwnerPID as String] as? Int32) == application.processIdentifier,
-                  (window[kCGWindowLayer as String] as? Int) == 0,
-                  let bounds = window[kCGWindowBounds as String] as? [String: Any],
-                  let width = bounds["Width"] as? NSNumber,
-                  let height = bounds["Height"] as? NSNumber else { return false }
-            return width.doubleValue > 0 && height.doubleValue > 0
+        let visibleWindows = windows.filter {
+            ($0[kCGWindowOwnerPID as String] as? Int32) == application.processIdentifier &&
+            ($0[kCGWindowLayer as String] as? Int) == 0
         }
-        if application.isFinishedLaunching && !application.isTerminated && !applicationWindows.isEmpty {
-            hasApplicationWindow = true
+        if application.isFinishedLaunching && !application.isTerminated && !visibleWindows.isEmpty {
+            hasVisibleWindow = true
             if visibleSince == nil { visibleSince = Date() }
             if let visibleSince, Date().timeIntervalSince(visibleSince) >= 2 {
-                print("ImmersionCaption launched successfully and retained an application window for two seconds (including other Spaces).")
+                print("ImmersionCaption launched successfully and retained a visible application window for two seconds.")
                 exit(0)
             }
         }
     }
-    if !hasApplicationWindow { visibleSince = nil }
+    if !hasVisibleWindow { visibleSince = nil }
     Thread.sleep(forTimeInterval: 0.1)
 }
-fputs("ImmersionCaption did not finish launching and retain an application window within 10 seconds. Check its process/window state and any crash report.\n", stderr)
+fputs("ImmersionCaption did not remain running with a visible window within 10 seconds. Check its crash report.\n", stderr)
 exit(1)

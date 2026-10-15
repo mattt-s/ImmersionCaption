@@ -10,12 +10,20 @@ protocol SystemAudioCapturing: AnyObject {
     func stop() async
 }
 
-/// A cumulative hypothesis within one recognition request. Only actual isFinal results
-/// may be translated; maintenance finishing must wait for that callback before restarting.
+/// A cumulative hypothesis within one recognition request. isFinal means actual recognizer
+/// completion; maintenance rotations change the ID without forcing unfinished speech final.
 struct TranscriptEvent {
     let utteranceID: UUID
     let text: String
     let isFinal: Bool
+    let segments: [SpeechSegment]
+
+    init(utteranceID: UUID, text: String, isFinal: Bool, segments: [SpeechSegment] = []) {
+        self.utteranceID = utteranceID
+        self.text = text
+        self.isFinal = isFinal
+        self.segments = segments
+    }
 }
 
 /// Accepts captured audio and emits cumulative hypotheses. No cloud fallback is allowed.

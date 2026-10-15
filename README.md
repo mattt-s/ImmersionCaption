@@ -4,7 +4,7 @@
 
 A native macOS app for learning English while listening to Mandarin audio from other applications. It turns application audio into English floating subtitles, with recognition and translation performed locally.
 
-**Status: local development app.** Version 0.6.0 asks Apple to finalize recognition after a natural pause, then translates only the actual final result (`isFinal == true`). Live drafts remain visible under Hearing. Audio arriving during finalization is buffered for the next request. Core Audio audio-only capture and the generated icon remain available; macOS 14.2+ is required. See [validation evidence](docs/VALIDATION.md) for verified behavior and remaining device checks.
+**Status: local development app built and launched.** Version 0.4.0 removes character-count, duration, pause, and stable-text cuts. Available complete sentences take priority over commas; unfinished text carries across recognizer maintenance restarts. Core Audio audio-only capture and the generated app icon remain available; macOS 14.2+ is required. Permission-driven audio capture, sustained transcription, and visual overlay acceptance remain to be checked interactively. See [validation evidence](docs/VALIDATION.md) for current test/build results.
 
 ## Implemented in source
 
@@ -17,10 +17,9 @@ A native macOS app for learning English while listening to Mandarin audio from o
 - A native Finder/Dock app icon, built from the generated [master artwork](Resources/Artwork/AppIcon.png).
 - Persistent preferences; memory-only history capped at 300 entries; explicit text export.
 - Text-only translation check and overlay preview for setup.
-- Finalized recognition requests only, with draft previews, duplicate-final protection, and no character-count or punctuation cuts; a three-item pending queue; cancellation/generation checks that reject late results.
-- Natural-pause detection to finish native requests earlier during playback, including audio sources that stop delivering buffers; translation still waits for genuine finals.
+- Punctuation-based sentences/clauses, with complete sentences preferred and no character-count or timer cuts; a three-item pending queue; cancellation/generation checks that reject late results.
 
-Build, automated tests, basic launch, and pause-triggered genuine finals on a short synthesized Mandarin fixture have been verified. The remaining manual acceptance checks are listed below. Embedded inference and model management are planned, not implemented.
+These features are implemented; build, automated tests, and basic launch have been verified. The remaining manual acceptance checks are listed below. Embedded inference and model management are planned, not implemented.
 
 ## Architecture
 
@@ -62,7 +61,7 @@ Set `CODE_SIGN_IDENTITY` to an available development identity to use it instead 
 
 To install after a successful build, copy `build/ImmersionCaption.app` into Applications. Keep one copy for permission testing so macOS does not confuse development bundles with the same identifier.
 
-`scripts/check-app-launch.sh` leaves the application open and verifies that its new process retains an application window, including windows on another Space or minimized windows. It does not click controls, capture audio, or request macOS privacy permissions.
+`scripts/check-app-launch.sh` leaves the application open and verifies that its process has a visible window. It does not click controls, capture audio, or request macOS privacy permissions.
 
 ## Configure
 
@@ -86,21 +85,20 @@ Subtitles disappear 12 seconds after their last update. History remains for the 
 
 ## Latency and translation quality
 
-Live speech is sent to translation only after Apple's recognizer returns **`isFinal == true`**:
+Translation inputs follow recognized punctuation:
 
-- **Hearing** shows the latest draft. Its words and punctuation can change, even after a full stop appears. A nonempty draft confirms speech presence for pause detection; its text never becomes translation input, history, or translated context.
-- The complete final text is submitted once for that recognition-request ID. There is no comma/sentence splitter, character limit, timing cursor, stable-text timer, or combination of drafts from different requests. The same phrase spoken again in a different finalized request remains valid.
-- The streaming recognizer requires request completion, rather than just a full stop in a draft. After speech is recognized and at least 200 ms of audio activity has occurred, the app detects **one continuous second of quiet** (below -45 dBFS). It atomically ends that request's audio and calls `finish()`, then waits for Apple's actual final callback. A 100 ms monitor also detects a one-second absence of incoming buffers. Brief gaps reset when audio resumes. It never fabricates `isFinal` or promotes the last draft. See [Apple's finish contract](https://developer.apple.com/documentation/speech/sfspeechrecognitiontask/finish()).
-- The existing 45-second maintenance finish remains a fallback for continuous speech or background audio that hides quiet. It can fall within a spoken sentence; it is a native request limit safeguard, not a sentence boundary detector.
-- Captured audio arriving while the old request finishes is held temporarily in memory and forwarded in order to the next request. The buffer is bounded to 12 seconds / 2,048 audio buffers. Finalization has a 10-second timeout; timeout, invalid audio, or buffer overflow stops translation visibly. There is no fallback to partial text. Pause/stop discards drafts and buffered audio.
+- If a complete sentence is already available, it is sent intact, including its commas and closing quotation marks. Sentence-ending punctuation is searched throughout the available text, without a length limit.
+- If no sentence ending is available yet, a comma, colon, or semicolon may commit a clause after at least ten characters. This is a minimum for using that punctuation, not a maximum input length. Numeric separators such as `1,000` and `10:30` are preserved. Short comma fragments wait.
+- Character count, speech duration, gaps between words, and 650 ms of unchanged text do **not** trigger translation. The old Short/Balanced selector has been removed; saved values from older versions are ignored.
+- A real final recognition result commits any remaining unpunctuated utterance intact. The automatic 45-second maintenance restart no longer fabricates a final result or flushes a fragment; unfinished recognized text continues into the next request. Pause/stop discards unfinished text.
 
-After an eligible pause, finalization is requested in about **1–1.1 seconds**, plus any delay before the recognizer first reports speech. Apple finalization, buffered audio, and translation add further latency. This is an audio-energy heuristic, not a learned speech detector or semantic sentence detector: a speaker can pause mid-sentence; music/noise can hide pauses; very quiet voices can fall below the threshold. Continuous audio may still wait roughly 45 seconds for maintenance. `isFinal` means completed recognition, not guaranteed word accuracy or grammatical completeness. Native timing and continuity need device acceptance. The manual **Translate sample** action remains an explicit text-only service check.
+This favors complete meaning over a fixed caption length. Text can wait longer if recognition supplies no punctuation or actual final result. Commas are heuristic clause cues, not a semantic completeness model, and partial punctuation may later change. Timings are used for revision alignment only. Request transitions still have a possible audio gap because there is no overlapping audio buffer; carrying text does not recover unheard audio.
 
-Subtitle wrapping and font scaling happen after translation. The overlay is bounded to six English lines and three Chinese lines; very long translations can be visually truncated. Automatic pagination is not implemented. A long finalized request can exceed the local model's context/output capacity; arbitrary-length translation is not guaranteed.
+Subtitle wrapping and font scaling happen after translation. The overlay is still bounded to six English lines and three Chinese lines; very long translations can be visually truncated. Automatic pagination is not implemented. Long inputs can also exceed the local model's context/output capacity; there is no promise that arbitrary-length speech can be translated in one request.
 
 Only one translation runs at a time. At most three phrases wait behind it; overflow discards the oldest pending phrase and shows a skipped-phrase count. This limits accumulated backlog, not worst-case end-to-end latency. Steady speech can still outpace the model. The first translation may take several seconds to load the model.
 
-Prompts favor concise, natural spoken English, idiomatic equivalents, faithful meaning, and tone. They request one translation of the current fragment, no alternatives or repeated context, no invented continuation, and preservation of who said or did what. Temperature 0 reduces sampling variation; changed context can still change the wording, and these instructions do not guarantee accuracy. Finalized text is passed intact; the existing overload policy can still skip queued finalized results if the model cannot keep up. A 4B model can still misread ambiguity, alter nuance, or translate too literally. The eight public [quality cases](docs/translation-quality-cases.json) are human-review material, not an automated fluency score. Warm **text translation** requests measured 0.46–0.97 seconds across two initial runs; this excludes audio capture, ASR finalization, and display time.
+Prompts favor concise, natural spoken English, idiomatic equivalents, faithful meaning, and tone. They request one translation of the current fragment, no alternatives or repeated context, no invented continuation, and preservation of who said or did what. Temperature 0 reduces sampling variation; changed context can still change the wording, and these instructions do not guarantee accuracy. The splitter carries the remaining speech into later captions rather than truncating it; the existing overload policy can still skip queued phrases if the model cannot keep up. A 4B model can still misread ambiguity, alter nuance, or translate too literally. The eight public [quality cases](docs/translation-quality-cases.json) are human-review material, not an automated fluency score. Warm **text translation** requests measured 0.46–0.97 seconds across two initial runs; this excludes audio capture, ASR, segmentation, and display time.
 
 ## Project structure
 
@@ -131,14 +129,9 @@ scripts/smoke-translation.sh
 
 # Exercise the production Swift HTTP adapter against installed local TranslateGemma:
 IMMERSIONCAPTION_LIVE_TEST=1 swift test --filter LocalTranslationIntegrationTests
-
-# After granting Speech permission to the built app, check real on-device finalization:
-scripts/check-speech.sh
 ```
 
 The smoke script uses the production Swift prompt builder and a Python standard-library HTTP client. The opt-in XCTest instead runs the production Swift HTTP adapter against local Ollama and checks that a short Chinese phrase returns English text; it skips by default so ordinary tests do not depend on a model server. Neither is an automated fluency assessment or a test of live audio, permissions, or overlay interaction. The full XCTest suites need modern Xcode.
-
-The speech check writes a temporary public Mandarin fixture with the installed Tingting voice and feeds it twice, with pauses, through the production Apple adapter inside a new app instance. It requires two pause-triggered genuine finals, including a final before feeding ends, within 40 seconds. It uses the app's existing authorization and does not open a permission dialog. Only counts/timing/error categories are reported; fixtures are removed afterward. This checks native recognition without system capture, microphone input, or Ollama, and does not replace listening tests with actual application audio.
 
 ## Known limitations and roadmap
 
@@ -147,9 +140,9 @@ The speech check writes a temporary public Mandarin fixture with the installed T
 - Captures a global stereo mix of application output using a private, tap-only aggregate device, without changing your default audio devices. This process is excluded when it already has a Core Audio process object; the app itself does not play audio. There is no per-app selector, audio mixing control, or multi-display subtitle selector. If the tap format changes after switching an output device, translation stops with a restart message rather than decoding buffers with the wrong format.
 - Protected/DRM content or some application audio may be unavailable to capture.
 - The legacy Speech framework may end recognition or return service errors. Requests restart on final results and rotate periodically; unexpected errors stop the session visibly. Long-duration and silent-input behavior need device testing.
-- Final-only mode can still produce long waits and long translation inputs when music or uninterrupted speech prevents pause detection. The fixed audio threshold may need tuning for quiet material. Recognition errors in a finalized result still reach the translator; finalization is not a correctness guarantee. The native fixture check passes; sustained handoff with actual recordings still needs listening acceptance.
+- Partials can change after a phrase has been committed. Word timestamps help realign earlier text-length revisions without replaying consumed audio; missing/all-zero timings use text-diff anchors to follow consumed speech across revisions. Ambiguous or completely rewritten transcripts still require a conservative fallback. Displayed translations cannot be corrected retroactively, and revised/merged word boundaries remain imperfect.
 - The overlay supports presets, not dragging. Long text may scale down or be truncated within its bounded panel; use shorter phrases/smaller fonts.
-- No user-facing audio playback, learned speech/noise separation, translation streaming, glossary, language learning analytics, or global shortcuts. Pause detection currently uses audio energy only.
+- No audio replay, VAD, translation streaming, glossary, language learning analytics, or global shortcuts.
 - No third-party source-package dependencies or analytics. The app stores preferences and explicitly exported history only; macOS/Ollama may have their own service logs.
 - Embedded inference (for example a suitable local llama.cpp/MLX adapter), app-managed models with checksum/license/disk-space handling, and a standalone offline installer remain future work. Apple assets and Ollama models must already be installed for offline operation today.
 
