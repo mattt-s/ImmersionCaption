@@ -8,13 +8,13 @@ flowchart LR
             Overlay["Floating subtitles<br/>SubtitleOverlayController<br/>NSPanel + SubtitleView"]
         end
 
-        Session["CaptionSession · MainActor<br/>Lifecycle · cancellation · punctuation<br/>Queue · context · in-memory history"]
+        Session["CaptionSession · MainActor<br/>Lifecycle · cancellation · final results<br/>Queue · context · in-memory history"]
         Settings["AppSettings<br/>Appearance + backend preferences"]
-        Core["CaptionCore · local Foundation package<br/>Caption · TranslationInput · SessionState<br/>SpeechSegment · TranscriptCursor<br/>TranscriptSegmenter · BoundedQueue<br/>TranslationPrompt · LocalEndpoint"]
+        Core["CaptionCore · local Foundation package<br/>Caption · TranslationInput · SessionState<br/>FinalTranscriptGate · BoundedQueue<br/>TranslationPrompt · LocalEndpoint"]
 
         subgraph Providers["Application ports → current infrastructure adapters"]
             Capture["SystemAudioCapturing<br/>↓ CoreAudioTapCapture<br/>System audio only · dedicated queue"]
-            Speech["SpeechRecognizing<br/>↓ AppleSpeechRecognizer<br/>On-device Mandarin required"]
+            Speech["SpeechRecognizing<br/>↓ AppleSpeechRecognizer<br/>On-device Mandarin · final callbacks"]
             Translation["TranslationEngine<br/>↓ OllamaTranslationEngine<br/>TranslateGemma request / response"]
         end
 

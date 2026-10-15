@@ -6,7 +6,7 @@ struct SettingsView: View {
     var body: some View {
         Form {
             Section("Subtitles") {
-                Text("Translations follow sentence and clause punctuation. Unfinished speech waits for a boundary or a final recognition result.")
+                Text("Translations wait for finalized speech. Hearing shows a live draft that may change before subtitles appear.")
                     .font(.caption).foregroundStyle(.secondary)
                 HStack {
                     Text("Font size")

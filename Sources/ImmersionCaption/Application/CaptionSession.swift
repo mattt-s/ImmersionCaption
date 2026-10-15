@@ -21,8 +21,7 @@ final class CaptionSession: ObservableObject {
     private let translator: TranslationEngine
     private let logger = Logger(subsystem: "app.ImmersionCaption", category: "Session")
     private var generation = UUID()
-    private var segmenter = TranscriptSegmenter()
-    private var utteranceID: UUID?
+    private var finalTranscripts = FinalTranscriptGate()
     private var queue = BoundedQueue<String>(capacity: 3)
     private var context: [Caption] = []
     private var worker: Task<Void, Never>?
@@ -107,8 +106,7 @@ final class CaptionSession: ObservableObject {
         generation = UUID()
         worker?.cancel(); worker = nil
         expiration?.cancel(); expiration = nil
-        segmenter.reset()
-        utteranceID = nil
+        finalTranscripts.reset()
         sourceDraft = ""
         currentCaption = nil
         context.removeAll()
@@ -120,12 +118,12 @@ final class CaptionSession: ObservableObject {
 
     private func receive(_ event: TranscriptEvent) {
         guard state == .running else { return }
-        if utteranceID != event.utteranceID {
-            segmenter.beginUtterance()
-            utteranceID = event.utteranceID
-        }
+        // Drafts can revise earlier words and punctuation; they are preview-only.
         sourceDraft = event.text
-        enqueue(segmenter.ingest(event.text, isFinal: event.isFinal, segments: event.segments))
+        if let source = finalTranscripts.consume(utteranceID: event.utteranceID,
+                                                text: event.text, isFinal: event.isFinal) {
+            enqueue([source])
+        }
     }
 
     private func enqueue(_ phrases: [String]) {

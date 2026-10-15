@@ -12,7 +12,8 @@ final class CaptionSessionTests: XCTestCase {
         let session = CaptionSession(capture: capture, speech: speech, translator: engine)
         await session.start()
         XCTAssertEqual(session.state, .running)
-        speech.emit("第一句。第二句。")
+        speech.emit("第一句。")
+        speech.emit("第二句。")
         await waitUntil { engine.requests.count == 1 }
         await session.pause()
         engine.complete("Late result")
@@ -46,7 +47,7 @@ final class CaptionSessionTests: XCTestCase {
         await session.start()
         speech.emit("一。")
         await waitUntil { engine.requests.count == 1 }
-        speech.emit("一。二。三。四。五。")
+        ["二。", "三。", "四。", "五。"].forEach { speech.emit($0) }
         XCTAssertEqual(session.droppedPhrases, 1)
         engine.complete("One.")
         await waitUntil { engine.requests.count == 2 }
@@ -112,43 +113,46 @@ final class CaptionSessionTests: XCTestCase {
         XCTAssertNil(session.errorMessage)
     }
 
-    func testStableUnpunctuatedPartialIsNotSentToTranslation() async throws {
+    func testPunctuatedPartialAndStableDraftWaitForAnActualFinal() async throws {
         let speech = FakeSpeech()
         let engine = HeldTranslator()
         let session = CaptionSession(capture: FakeCapture(), speech: speech, translator: engine)
         await session.start()
-        let partial = String(repeating: "今天我们聊一聊学习英语的方法", count: 5)
-        speech.emit(partial)
-        // Exceed the removed 650 ms timeout; text must still wait for punctuation.
+        let draft = "老板见有了巴结的机会，立刻答应帮忙。"
+        speech.emit(draft, isFinal: false)
         try await Task.sleep(nanoseconds: 800_000_000)
         XCTAssertTrue(engine.requests.isEmpty)
-        speech.emit(partial + "。")
+        XCTAssertEqual(session.sourceDraft, draft)
+        let final = "老板看到有了巴结的机会，就立刻答应帮忙。"
+        speech.emit(final)
         await waitUntil { engine.requests.count == 1 }
-        XCTAssertEqual(engine.requests.first?.source, partial + "。")
+        XCTAssertEqual(engine.requests.first?.source, final)
         await session.stop()
-        engine.complete("A complete sentence.")
+        engine.complete("A completed translation.")
     }
 
-    func testRequestRotationCarriesUnfinishedTextIntoNextRequest() async {
+    func testRequestChangeDoesNotTranslateOrCarryAnUnfinalizedDraft() async {
         let speech = FakeSpeech()
         let engine = HeldTranslator()
         let session = CaptionSession(capture: FakeCapture(), speech: speech, translator: engine)
         await session.start()
-        speech.emit("今天我们决定")
+        speech.emit("这段没有最终确认的草稿。", isFinal: false)
         speech.utteranceID = UUID()
-        speech.emit("等大家准备好以后再出发。")
+        speech.emit("下一段的草稿。", isFinal: false)
+        XCTAssertTrue(engine.requests.isEmpty)
+        speech.emit("下一段最终确认的内容。")
         await waitUntil { engine.requests.count == 1 }
-        XCTAssertEqual(engine.requests.first?.source, "今天我们决定等大家准备好以后再出发。")
+        XCTAssertEqual(engine.requests.first?.source, "下一段最终确认的内容。")
         await session.stop()
-        engine.complete("We'll leave once everyone is ready.")
+        engine.complete("The finalized content.")
     }
 
-    func testPauseDiscardsUnfinishedCarry() async {
+    func testPauseDiscardsUnfinalizedDraft() async {
         let speech = FakeSpeech()
         let engine = HeldTranslator()
         let session = CaptionSession(capture: FakeCapture(), speech: speech, translator: engine)
         await session.start()
-        speech.emit("这段没有说完的内容")
+        speech.emit("这段没有说完的内容", isFinal: false)
         await session.pause()
         await session.start()
         speech.emit("这是一段新的内容。")
@@ -182,27 +186,39 @@ final class CaptionSessionTests: XCTestCase {
         engine.complete("A full translation.")
     }
 
-    func testRevisedZeroTimedTranscriptDoesNotEnqueueOldClausesAgain() async {
+    func testHomophoneRevisionsProduceOnlyTheFinalizedWholeInput() async {
         let speech = FakeSpeech()
         let engine = HeldTranslator()
         let session = CaptionSession(capture: FakeCapture(), speech: speech, translator: engine)
         await session.start()
-        let original = "他笑着说马上就去安排，大家发现他今天特别高兴，老板也看到了表现的机会，"
-        func zeroTiming(_ text: String) -> [SpeechSegment] {
-            [SpeechSegment(range: NSRange(location: 0, length: text.utf16.count), startTime: 0, duration: 0)]
-        }
-        speech.emit(original, segments: zeroTiming(original))
+        speech.emit("货船进入广州的黄埔港，", isFinal: false)
+        speech.emit("货船进入广州的黄埔岗，另一部分继续往北走。", isFinal: false)
+        let final = "货船进入广州的黄埔港，另一部分继续往北走。后面还会经过台湾岛。"
+        speech.emit(final)
         await waitUntil { engine.requests.count == 1 }
-        let pendingBefore = session.pendingPhrases
-        let revised = "他笑着说马上就去安排，大家发现他今天特别高兴还一直哼着歌，老板也看到了表现的机会，"
-        speech.emit(revised, segments: zeroTiming(revised))
-        XCTAssertEqual(session.pendingPhrases, pendingBefore)
-        XCTAssertEqual(session.droppedPhrases, 0)
-        engine.complete("He said he'd arrange it right away.")
-        await waitUntil { engine.requests.count == 2 }
-        XCTAssertEqual(engine.requests[1].source, "大家发现他今天特别高兴，")
+        XCTAssertEqual(engine.requests.first?.source, final)
+        XCTAssertEqual(session.pendingPhrases, 0)
+        engine.complete("The final translation.")
+        await waitUntil { !session.isTranslating }
+        XCTAssertEqual(session.history.count, 1)
+        XCTAssertEqual(session.history.first?.source, final)
         await session.stop()
-        engine.complete("They noticed he was in a good mood.")
+    }
+
+    func testDuplicateFinalEventsDoNotCreateExtraTranslationRequests() async {
+        let speech = FakeSpeech()
+        let engine = HeldTranslator()
+        let session = CaptionSession(capture: FakeCapture(), speech: speech, translator: engine)
+        await session.start()
+        let event = TranscriptEvent(utteranceID: UUID(), text: "最后确认的内容。", isFinal: true)
+        speech.callback?(event)
+        await waitUntil { engine.requests.count == 1 }
+        speech.callback?(event)
+        XCTAssertEqual(session.pendingPhrases, 0)
+        engine.complete("Final content.")
+        await waitUntil { !session.isTranslating }
+        XCTAssertEqual(session.history.count, 1)
+        await session.stop()
     }
 
     private func waitUntil(_ predicate: () -> Bool, file: StaticString = #filePath, line: UInt = #line) async {
@@ -249,8 +265,9 @@ private final class FakeSpeech: SpeechRecognizing {
         if holdStartup { await withCheckedContinuation { startup = $0 } }
     }
     func stop() { callback = nil; failure = nil }
-    func emit(_ text: String, segments: [SpeechSegment] = []) {
-        callback?(TranscriptEvent(utteranceID: utteranceID, text: text, isFinal: false, segments: segments))
+    func emit(_ text: String, isFinal: Bool = true) {
+        callback?(TranscriptEvent(utteranceID: utteranceID, text: text, isFinal: isFinal))
+        if isFinal { utteranceID = UUID() }
     }
 }
 
