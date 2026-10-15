@@ -3,6 +3,7 @@
 ## Product and privacy
 
 - Build a native macOS application for Mandarin system-audio captions translated into idiomatic English.
+- Capture application output with Core Audio process taps and `NSAudioCaptureUsageDescription`; do not introduce ScreenCaptureKit, screen permission requests, or a microphone input. Keep tap/aggregate private, playback unmuted, and default devices unchanged. Copy HAL callback buffers before returning; synchronize stop with delivery and clean up partial startup.
 - Never capture the microphone. Never silently use cloud recognition or remote translation.
 - Require on-device speech recognition. Ollama connections must remain loopback-only.
 - Do not log audio, transcripts, translations, or request bodies. History is memory-only unless the user explicitly exports it.
@@ -10,7 +11,7 @@
 
 ## Architecture and Swift
 
-- Swift 5.9+; macOS 13+. Use structured concurrency and isolate presentation/session state to MainActor.
+- Swift 5.9+; macOS 14.2+. Use structured concurrency and isolate presentation/session state to MainActor.
 - Keep domain policy in Packages/CaptionCore, orchestration and ports in Application, native adapters in Infrastructure, UI in Presentation. Wire dependencies only in App/AppContainer.swift.
 - Keep AI providers behind SpeechRecognizing and TranslationEngine. No Ollama DTOs or Apple recognition types in domain models.
 - Prefer small focused types, explicit injected dependencies, and descriptive names. Avoid speculative abstraction.
@@ -28,7 +29,7 @@
 - Do not construct the overlay's NSHostingView inside AppContainer initialization: SwiftUI resolves the StateObject during its own graph update. Defer presentation to the view task to avoid a startup precondition failure.
 - Do not claim that source parsing or core tests prove the macOS app compiles or captures audio.
 - Test lifecycle races, segmentation, loopback enforcement, request/response contracts, cancellation, and overload behavior when changing them.
-- Verify actual screen/audio permission flows, Mandarin model availability, overlay behavior across Spaces, and translation quality on a Mac before release.
+- Verify actual system-audio-only and Speech permission flows, Mandarin model availability, overlay behavior across Spaces, and translation quality on a Mac before release.
 - Maintain README.md, ARCHITECTURE.md, and docs/VALIDATION.md with implementation changes. Distinguish implemented, verified, and planned features.
 - Keep docs/diagrams/architecture.mmd and its SVG/PNG exports in sync when changing the architecture; regeneration instructions are in docs/diagrams/README.md. Gray planned components must not be presented as implemented.
 - Use Git, preserve user work, keep generated bundles, models, and personal history out of commits. Do not add external dependencies without a concrete need.

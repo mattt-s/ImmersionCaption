@@ -1,6 +1,6 @@
 # Architecture
 
-ImmersionCaption uses a small MVVM-style presentation layer with a dedicated application coordinator and replaceable infrastructure adapters. The minimum runtime is macOS 13, which provides ScreenCaptureKit application-audio capture. Swift 5.9 is the minimum app compiler; the Foundation-only domain package also supports the initially installed Swift 5.3 tools.
+ImmersionCaption uses a small MVVM-style presentation layer with a dedicated application coordinator and replaceable infrastructure adapters. The minimum runtime is macOS 14.2, which provides Core Audio process taps and system-audio-only authorization. Swift 5.9 is the minimum app compiler; the Foundation-only domain package also supports the initially installed Swift 5.3 tools.
 
 ## Responsibilities and dependencies
 
@@ -10,10 +10,10 @@ ImmersionCaption uses a small MVVM-style presentation layer with a dedicated app
 
 This is a component map, not a runtime sequence. Solid arrows show existing calls, observations, or policy dependencies. Each provider box pairs an application protocol with its current infrastructure adapter. The dashed arrow and gray section show the planned embedded replacement; they are not implemented. AppContainer assembles the current providers and settings and defers overlay creation until view startup. The sequence diagram below shows the actual audio-to-caption flow.
 
-- **CaptionCore** has no UI, HTTP, Speech, ScreenCaptureKit, Combine, or dependency on Ollama's transport. Its `TranslationPrompt` is a named TranslateGemma policy helper; other translation models can ignore it. Values and bounded queues remain provider-neutral.
-- **Application/Ports.swift** defines `SystemAudioCapturing`, `SpeechRecognizing`, and `TranslationEngine`. Capture and speech exchange native `CMSampleBuffer` audio to avoid unnecessary conversion. That boundary is intentionally macOS-specific; replaceable speech adapters must accept or convert these buffers. Transcript events carry provider-neutral `SpeechSegment` values (UTF-16 range, start time, duration), so the domain can find word gaps and keep lexical units intact. Providers may omit timings, using the text-only fallback. Translation values remain backend-independent.
+- **CaptionCore** has no UI, HTTP, Speech, Core Audio, Combine, or dependency on Ollama's transport. Its `TranslationPrompt` is a named TranslateGemma policy helper; other translation models can ignore it. Values and bounded queues remain provider-neutral.
+- **Application/Ports.swift** defines `SystemAudioCapturing`, `SpeechRecognizing`, and `TranslationEngine`. Capture and speech exchange native `CMSampleBuffer` audio; the capture adapter copies HAL buffers into owning sample buffers without resampling. That boundary is intentionally macOS-specific; replaceable speech adapters must accept or convert these buffers. Transcript events carry provider-neutral `SpeechSegment` values (UTF-16 range, start time, duration), so the domain can find word gaps and keep lexical units intact. Providers may omit timings, using the text-only fallback. Translation values remain backend-independent.
 - **CaptionSession** is the use-case coordinator and observable view model. It owns lifecycle, segmentation, draft stabilization, translation ordering, history, context, overload reporting, caption expiry, and cancellation.
-- **Infrastructure/Audio** manages ScreenCaptureKit and its permission-triggering content enumeration. It registers only audio output, excludes this process, minimizes unused video configuration, and never creates a microphone input.
+- **Infrastructure/Audio** owns `CoreAudioTapCapture`: a private, unmuted global stereo process tap and a private aggregate containing only that tap. `NSAudioCaptureUsageDescription` requests system audio access. There is no display enumeration, ScreenCaptureKit dependency/fallback, physical input device, or microphone input. The existing HAL process object is excluded when available; this app produces no playback. The adapter reads the tap’s native PCM format and copies callback memory with `PCMBufferConverter`. A format-change listener stops the session if the format changes; unchanged notifications are ignored.
 - **Infrastructure/Speech** manages local Mandarin recognition, synchronized audio append/request replacement, and periodic recognition request rotation. Runtime capability is checked before recognition; `requiresOnDeviceRecognition` is always true.
 - **Infrastructure/Translation** owns Ollama JSON, HTTP timeouts, loopback restriction, redirect rejection, completion validation, and error mapping. It does not choose UI state or store history.
 - **Infrastructure/Persistence** stores appearance and backend preferences in UserDefaults. History and audio are not automatically persisted.
@@ -28,13 +28,13 @@ There is one source-level app module and one local domain package. More packages
 sequenceDiagram
     participant User
     participant Session as CaptionSession (MainActor)
-    participant Capture as ScreenCaptureKit
+    participant Capture as Core Audio process tap
     participant Speech as On-device Speech
     participant Model as Local translation engine
     participant UI as Overlay / History
     User->>Session: Start
     Session->>Speech: Authorize and require local Mandarin
-    Session->>Capture: Start audio-only output
+    Session->>Capture: Authorize system audio / start private tap
     loop While running
         Capture->>Speech: CMSampleBuffer (capture queue)
         Speech->>Session: Cumulative hypothesis + utterance ID
@@ -53,9 +53,9 @@ sequenceDiagram
 
 ## Concurrency and ownership
 
-Presentation, settings, coordinator, and adapter control methods are MainActor-isolated. ScreenCaptureKit invokes a dedicated serial audio queue. A lock-protected `AudioOutput` snapshots its receiver before forwarding samples directly to a lock-protected `SpeechAudioSink`. The sink serializes `appendAudioSampleBuffer` with `endAudio`/request replacement. Audio buffers are not placed in an unbounded task stream or written to disk.
+Presentation, settings, coordinator, and capture entry points are MainActor-isolated. Each `AudioTapRun` confines native setup/teardown and resource IDs to a serial control queue, keeping permission/device calls off MainActor. Core Audio invokes a separate serial sample queue synchronously. `PCMBufferConverter` copies HAL-owned interleaved or planar PCM into owning `CMSampleBuffer` data before the callback returns, retaining the native sample rate/channel format and advancing frame-based timestamps. A lock-protected `AudioTapOutput` serializes delivery with disable; the existing `SpeechAudioSink` serializes append with request replacement/endAudio. There is no unbounded task stream or disk audio storage. Conversion and format errors hop to MainActor once; stop suppresses queued failure delivery.
 
-Apple recognition callbacks snapshot text/finality and dispatch onto MainActor. Session and request UUIDs reject callbacks after stop or request rotation. Session generation UUIDs reject translation results after pause, stop, failure, or restart, including providers that ignore cancellation. Transition counters prevent new starts during pending startup/teardown. The capture adapter has its own generation to handle cancellation while content enumeration or capture startup is suspended.
+Apple recognition callbacks snapshot text/finality and dispatch onto MainActor. Session and request UUIDs reject callbacks after stop or request rotation. Session generation UUIDs reject translation results after pause, stop, failure, or restart, including providers that ignore cancellation. Transition counters prevent new starts during pending startup/teardown. The capture adapter has its own generation to handle cancellation during asynchronous setup/teardown. Stop disables delivery immediately, then stops/destroys the IOProc, removes the format listener, destroys the aggregate, and destroys the tap on the control queue. Partial startup failures follow the same cleanup path. Run resources are never reused by a later session.
 
 One worker Task translates sequentially so context is ordered. At most three additional phrases wait; dropping the oldest pending phrase preserves newer dialogue at the expense of completeness. Stable-draft and caption-expiry Tasks are replaced/cancelled as appropriate. A failed backend visibly stops the pipeline; there is no retry storm or cloud fallback.
 

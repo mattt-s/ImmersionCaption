@@ -12,11 +12,13 @@ fi
 major="${BASH_REMATCH[1]}"
 minor="${BASH_REMATCH[2]}"
 if (( major < 5 || (major == 5 && minor < 9) )); then
-    echo "Swift 5.9+ is required. Finish installing Xcode 15+ and select its developer directory." >&2
+    echo "Swift 5.9+ is required. Finish installing Xcode 15.2+ and select its developer directory." >&2
     exit 1
 fi
-if [[ ! -d "$sdk_path/System/Library/Frameworks/ScreenCaptureKit.framework" ]]; then
-    echo "A macOS 13+ SDK with ScreenCaptureKit is required." >&2
+sdk_version="$(xcrun --sdk macosx --show-sdk-version)"
+IFS=. read -r sdk_major sdk_minor sdk_patch <<< "$sdk_version"
+if (( sdk_major < 14 || (sdk_major == 14 && ${sdk_minor:-0} < 2) )); then
+    echo "A macOS 14.2+ SDK with Core Audio process taps is required." >&2
     exit 1
 fi
 echo "Build prerequisites are available. Runtime permissions and Mandarin assets are checked on Start."

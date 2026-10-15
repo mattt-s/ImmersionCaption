@@ -4,11 +4,11 @@
 
 A native macOS app for learning English while listening to Mandarin audio from other applications. It turns application audio into English floating subtitles, with recognition and translation performed locally.
 
-**Status: local development app built and launched.** Version 0.2.0 adds a generated native app icon and Short/Balanced caption lengths, with regression tests for timestamp-based boundaries, ASR revisions, proper names, and invalid UTF-16 ranges. Permission-driven audio capture, sustained transcription, and visual overlay acceptance remain to be checked interactively. See [validation evidence](docs/VALIDATION.md) for current test/build results.
+**Status: local development app built and launched.** Version 0.3.0 replaces display-based ScreenCaptureKit capture with private Core Audio process taps and system-audio-only permission, requiring macOS 14.2+. The generated icon and Short/Balanced caption controls remain available. Permission-driven audio capture, sustained transcription, and visual overlay acceptance remain to be checked interactively. See [validation evidence](docs/VALIDATION.md) for current test/build results.
 
 ## Implemented in source
 
-- ScreenCaptureKit system/application audio capture, excluding ImmersionCaption; no microphone input.
+- Core Audio process-tap capture of system/application output; no screen capture or microphone input.
 - On-device Mandarin (`zh-CN`) recognition through Apple's Speech framework, with no cloud fallback.
 - Local Ollama translation, defaulting to the installed `translategemma:4b` model.
 - A natural-English translation prompt with up to two previous translated phrases as context.
@@ -29,8 +29,8 @@ The caption session coordinates replaceable audio, speech, and translation provi
 
 ## Requirements
 
-- macOS 13+; Apple Silicon recommended. An M2 Pro with 16 GB is a suitable initial target, but sustained audio performance has not been measured.
-- Xcode 15+ with Swift 5.9+ and a macOS 13+ SDK. A current Xcode compatible with your macOS is recommended. Old command-line tools are insufficient.
+- macOS 14.2+; Apple Silicon recommended. An M2 Pro with 16 GB is a suitable initial target, but sustained audio performance has not been measured.
+- Xcode 15.2+ with Swift 5.9+ and a macOS 14.2+ SDK. A current Xcode compatible with your macOS is recommended. Old command-line tools are insufficient.
 - Apple's on-device Mandarin recognition assets. Availability varies by OS/language; the app refuses recognition if `supportsOnDeviceRecognition` is false.
 - Ollama running locally and a downloaded local model. No API key or paid service is used. Initial development detected `translategemma:4b` already installed.
 
@@ -76,7 +76,7 @@ Only explicit HTTP loopback addresses are accepted. HTTP redirects and proxies a
 ## Use
 
 1. Start Mandarin playback in another app, then select **Start translating**.
-2. Allow Speech Recognition and Screen Recording / Screen & System Audio Recording when macOS requests them. The exact label depends on macOS. A microphone permission is never requested. You may need to quit/reopen the app after granting capture access.
+2. Allow **Speech Recognition** and **System Audio Recording** when macOS requests them. Screen recording and microphone access are not needed. The audio-only toggle may appear inside Privacy & Security → Screen & System Audio Recording → System Audio Recording Only. If you previously installed version 0.2 or earlier, macOS may retain its old screen-recording entry; you can disable that broader permission and allow audio-only access for this build. Quit older running copies before testing the replacement. Restart translation (or reopen the app) after changing permissions.
 3. Adjust the overlay in Settings; enable **Preview subtitle overlay** to see changes during silence. Disable preview when finished.
    Choose **Short** (default) for smaller phrases, or **Balanced** for longer context. Caption-length changes apply when you next start or resume.
 4. Pause releases capture and recognition, discards pending translations, and hides the current subtitle. Resume starts fresh recognition/context; it does not replay audio heard while paused.
@@ -111,7 +111,7 @@ Sources/ImmersionCaption/
   Infrastructure/                     capture, speech, Ollama, preferences
   Presentation/                       SwiftUI controls, history, settings, AppKit overlay
 Resources/                            icon artwork, app identity, privacy descriptions, entitlements
-Tests/ImmersionCaptionTests/           lifecycle and HTTP contract tests
+Tests/ImmersionCaptionTests/           audio-buffer, lifecycle, and HTTP contract tests
 scripts/                              build, environment, domain checks, local model smoke test
 docs/                                 validation results and translation review fixtures
 ```
@@ -137,7 +137,7 @@ The smoke script uses the production Swift prompt builder and a Python standard-
 
 - The current Apple Silicon bundle is an ad-hoc signed development build. Compilation, launch, signature checks, and automated tests pass; live audio, permission handling, sustained use, and visual overlay behavior still need manual acceptance. No notarized release has been produced.
 - On-device Mandarin availability is controlled by macOS. Direct model download/selection is not implemented.
-- Captures aggregate application audio using the first available display filter. There is no per-app selector, audio mixing control, or multi-display subtitle selector.
+- Captures a global stereo mix of application output using a private, tap-only aggregate device, without changing your default audio devices. This process is excluded when it already has a Core Audio process object; the app itself does not play audio. There is no per-app selector, audio mixing control, or multi-display subtitle selector. If the tap format changes after switching an output device, translation stops with a restart message rather than decoding buffers with the wrong format.
 - Protected/DRM content or some application audio may be unavailable to capture.
 - The legacy Speech framework may end recognition or return service errors. Requests restart on final results and rotate periodically; unexpected errors stop the session visibly. Long-duration and silent-input behavior need device testing.
 - Partials can change after a phrase has been committed. Word timestamps help realign earlier text-length revisions without replaying consumed audio; providers without timings use positional fallback. Displayed translations cannot be corrected retroactively, and revised/merged word boundaries remain imperfect.
@@ -148,6 +148,6 @@ The smoke script uses the production Swift prompt builder and a Python standard-
 
 ## References and licensing
 
-The capture adapter follows [Apple's ScreenCaptureKit guidance](https://developer.apple.com/documentation/screencapturekit/capturing-screen-content-in-macos). Recognition checks [on-device capability](https://developer.apple.com/documentation/speech/sfspeechrecognizer/supportsondevicerecognition) and requires local requests. The translation adapter follows the [Ollama chat API](https://docs.ollama.com/api/chat) and [TranslateGemma prompt guide](https://ollama.com/library/translategemma).
+The capture adapter follows [Apple's Core Audio process-tap guidance](https://developer.apple.com/documentation/coreaudio/capturing-system-audio-with-core-audio-taps), using `NSAudioCaptureUsageDescription` for audio-only authorization. There is no ScreenCaptureKit fallback on older macOS versions. Recognition checks [on-device capability](https://developer.apple.com/documentation/speech/sfspeechrecognizer/supportsondevicerecognition) and requires local requests. The translation adapter follows the [Ollama chat API](https://docs.ollama.com/api/chat) and [TranslateGemma prompt guide](https://ollama.com/library/translategemma).
 
 Application source is MIT licensed; see LICENSE. AI model weights and Apple/Ollama components have their own terms. No weights or external runtimes are bundled or redistributed.

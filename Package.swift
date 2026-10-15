@@ -3,7 +3,7 @@ import PackageDescription
 
 let package = Package(
     name: "ImmersionCaption",
-    platforms: [.macOS(.v13)],
+    platforms: [.macOS("14.2")],
     products: [.executable(name: "ImmersionCaption", targets: ["ImmersionCaption"])],
     dependencies: [.package(path: "Packages/CaptionCore")],
     targets: [

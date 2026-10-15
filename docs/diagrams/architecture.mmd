@@ -13,7 +13,7 @@ flowchart LR
         Core["CaptionCore · local Foundation package<br/>Caption · TranslationInput · SessionState<br/>SpeechSegment · CaptionLength<br/>TranscriptSegmenter · BoundedQueue<br/>TranslationPrompt · LocalEndpoint"]
 
         subgraph Providers["Application ports → current infrastructure adapters"]
-            Capture["SystemAudioCapturing<br/>↓ ScreenAudioCapture<br/>System audio only · dedicated queue"]
+            Capture["SystemAudioCapturing<br/>↓ CoreAudioTapCapture<br/>System audio only · dedicated queue"]
             Speech["SpeechRecognizing<br/>↓ AppleSpeechRecognizer<br/>On-device Mandarin required"]
             Translation["TranslationEngine<br/>↓ OllamaTranslationEngine<br/>TranslateGemma request / response"]
         end
@@ -23,7 +23,7 @@ flowchart LR
         end
     end
 
-    CaptureKit["ScreenCaptureKit<br/>macOS application audio API"]
+    CoreAudio["Core Audio process taps<br/>System Audio Recording permission"]
     SpeechKit["Speech framework<br/>OS-managed Mandarin model"]
     Defaults[("UserDefaults<br/>Preferences only")]
     Ollama["Ollama + translategemma:4b<br/>Separate local process<br/>127.0.0.1:11434"]
@@ -37,7 +37,7 @@ flowchart LR
     Session -->|"speech port"| Speech
     Session -->|"translation port"| Translation
     Translation -->|"prompt / endpoint policy"| Core
-    Capture -->|"native API"| CaptureKit
+    Capture -->|"native API"| CoreAudio
     Speech -->|"on-device API"| SpeechKit
     Translation <-->|"loopback HTTP"| Ollama
     Settings -->|"stores preferences"| Defaults
@@ -53,5 +53,5 @@ flowchart LR
     class Session application
     class Core domain
     class Capture,Speech,Translation,Settings adapter
-    class CaptureKit,SpeechKit,Defaults,Ollama service
+    class CoreAudio,SpeechKit,Defaults,Ollama service
     class Embedded planned

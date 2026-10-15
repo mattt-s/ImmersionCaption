@@ -2,6 +2,19 @@
 
 Initial development and subsequent build verification: 2026-10-15 (Asia/Tokyo).
 
+## Version 0.3.0: system audio permission only
+
+Changes implemented on 2026-10-15:
+
+- Replaced `ScreenAudioCapture` with `CoreAudioTapCapture` behind the existing `SystemAudioCapturing` port. The app no longer links ScreenCaptureKit or enumerates display/window content. A private, unmuted global stereo process tap feeds a private tap-only aggregate device. No physical input device or default-device changes are involved.
+- Replaced `NSScreenCaptureUsageDescription` with `NSAudioCaptureUsageDescription`. Speech Recognition permission remains required. Package deployment target, bundle minimum, environment checks, and documentation now require macOS 14.2+ / Xcode 15.2+.
+- Native setup/cleanup runs on a serial control queue. Audio delivery runs synchronously on a separate serial queue; stop disables delivery before tearing down native resources. Partial startup failures use the same teardown. A format-change listener ignores unchanged notifications and reports actual format changes for an explicit restart.
+- Added eight tests covering owning copies of HAL memory, exact PCM timestamps/frame counts, interleaved and planar stereo, empty buffers, invalid formats and malformed planes, delivery disabled on stop, failure coalescing, and suppression of queued errors after stop. Initial conversion tests exposed Core Media's requirement for exact sample-clock timing: rounded nanosecond durations were rejected; the implementation now uses `CMTime(value: 1, timescale: sampleRate)`.
+- `swift test --package-path Packages/CaptionCore`: **25 passed**. `swift test`: **21 passed**, with the opt-in live test skipped as expected. A separate `IMMERSIONCAPTION_LIVE_TEST=1 swift test --filter LocalTranslationIntegrationTests` run passed the real local TranslateGemma test in approximately 3.83 seconds. **47 distinct tests passed, zero remaining failures.** Translation timing excludes capture and recognition.
+- Release `.app` build, signature verification, plist validation, shell syntax checks, and new-instance launch/window check passed. The executable's deployment minimum is 14.2; linked-framework inspection confirms Core Audio and no ScreenCaptureKit. Updated architecture SVG/PNG exports were regenerated from Mermaid source.
+
+**Still requires interactive acceptance:** open the 0.3 bundle after quitting older copies, disable any retained broad screen-recording grant, allow System Audio Recording Only plus Speech Recognition, and play Mandarin in another app. Confirm captions with screen recording disabled, pause/resume/stop behavior, denial/regrant recovery, silence, sustained listening, and output-device changes. Automated PCM fixtures and a successful launch do not prove the actual permission prompt or live audio path. No TCC database/reset operations were performed. macOS may retain the older version's broader permission entry; this build does not request it.
+
 ## Version 0.2.0: icon and shorter captions
 
 Changes implemented on 2026-10-15:
