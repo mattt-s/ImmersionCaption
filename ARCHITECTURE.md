@@ -27,7 +27,7 @@ flowchart TD
 - **Infrastructure/Translation** owns Ollama JSON, HTTP timeouts, loopback restriction, redirect rejection, completion validation, and error mapping. It does not choose UI state or store history.
 - **Infrastructure/Persistence** stores appearance and backend preferences in UserDefaults. History and audio are not automatically persisted.
 - **Presentation** observes session/settings. Its click-through panel handles Spaces/fullscreen positioning separately from the content views. Views invoke coordinator methods and do not construct inference adapters.
-- **AppContainer** assembles concrete dependencies once. It retains the overlay even when the main window is closed. The menu bar remains usable.
+- **AppContainer** assembles concrete dependencies once. A view task creates the overlay after dependency resolution has finished, avoiding nested hosting-graph creation during SwiftUI StateObject initialization. It retains that overlay even when the main window is closed. The menu bar remains usable.
 
 There is one source-level app module and one local domain package. More packages, repositories, generic pipeline frameworks, or an unused model-manager abstraction would add little value at this stage.
 
@@ -100,4 +100,4 @@ Standalone deployment is an architectural path, not a completed feature. The cur
 
 ## Verification boundaries
 
-Domain XCTest sources and a compatibility runner exercise actual production rules. App XCTest sources cover lifecycle cancellation/generation races, overload/context ordering, recognition failure teardown, the HTTP request schema, invalid responses, and endpoint validation. Modern-Xcode execution and interactive permissions/overlay/audio tests remain outstanding. See docs/VALIDATION.md for measured evidence and the acceptance checklist.
+Domain XCTest sources and a compatibility runner exercise actual production rules. App XCTest sources cover lifecycle cancellation/generation races, overload/context ordering, recognition failure teardown, the HTTP request schema, invalid responses, endpoint validation, and deferred native-window creation. An opt-in integration test runs the real Swift Ollama adapter against installed TranslateGemma. All 24 tests passed with Xcode 27 / Swift 6.4 and live inference enabled. The release bundle passed signature verification and a process/window launch check. Interactive permissions, overlay behavior, sustained speech, and end-to-end audio tests remain outstanding. See docs/VALIDATION.md for measured evidence and the acceptance checklist.

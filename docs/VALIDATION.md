@@ -1,8 +1,24 @@
 # Validation record
 
-Initial development: 2026-10-15 (Asia/Tokyo).
+Initial development and subsequent build verification: 2026-10-15 (Asia/Tokyo).
 
-## Environment observed
+## Current build verification
+
+After Xcode installation and the user's license acceptance:
+
+- Xcode 27.0, build 27A266a; Swift 6.4; macOS 27.0 SDK. Active developer directory: `/Applications/Xcode.app/Contents/Developer`.
+- Fixed the Swift 5.3 manifest directive's whitespace so the core package can be resolved by current SwiftPM while preserving the old tools-version declaration.
+- `swift test --package-path Packages/CaptionCore`: **11 tests passed**.
+- `IMMERSIONCAPTION_LIVE_TEST=1 swift test`: **13 tests passed**, including the native-initialization regression, eight session lifecycle tests, three HTTP contract/error tests, and one real local model integration test. Total across both packages: **24 tests, zero failures**.
+- The production Swift Ollama adapter returned English for the public sample. Its first integration test took 4.275 seconds; the later warm run took 0.404 seconds. These are test/request times, not end-to-end audio latency.
+- `scripts/build-app.sh`: release build succeeded and produced `build/ImmersionCaption.app` for Apple Silicon with an ad-hoc development signature. Signature verification passed.
+- The first launch exposed an AttributeGraph precondition failure: creating the overlay's NSHostingView inside StateObject dependency initialization re-entered SwiftUI's graph update. Overlay creation now runs from the main view's task, after yielding, and remains owned by AppContainer.
+- `scripts/check-app-launch.sh`: **passed**; the rebuilt application remained running with one visible main window. This inspects process/window metadata only, with no screenshot, Accessibility, audio, or microphone access.
+- Ollama was initially stopped and was started from its existing installed application for the live integration check.
+
+**Still unverified:** interactive privacy permission flows, actual system-audio transcription, offline speech asset readiness, long-running recognition/rotations, subtitle appearance across Spaces/fullscreen, and installation on another machine. A development bundle now exists; this is not yet a notarized or fully accepted release.
+
+## Original environment (before Xcode installation)
 
 - Empty starting workspace; Git repository initialized on `main`.
 - Apple Silicon `arm64`; host reports macOS 27.0.1.
@@ -13,7 +29,7 @@ Initial development: 2026-10-15 (Asia/Tokyo).
 - Ollama 0.40.4 is serving locally; `translategemma:4b` is installed (3.3 GB as reported by Ollama).
 - A read-only Speech framework probe reports `zh-CN` recognizer availability and on-device capability both `true`. Authorization remains not determined (`0`); no permission was requested and no recognition/audio capture was performed. This does not validate actual transcription or offline asset readiness.
 
-## Checks performed
+## Initial checks before Xcode installation
 
 | Check | Result | What it establishes |
 | --- | --- | --- |
@@ -55,11 +71,11 @@ The final prompt adds general guidance to preserve negation, temporal status, te
 
 The conversational sense of “message” improved, but case 2 remains inaccurate, case 6 remains too literal, and “probably” in case 5 conveys stronger confidence than “might.” Prompt refinement alone did not solve semantic fidelity. Both runs used isolated phrases without dialogue context and are not a broad model benchmark.
 
-## Required before calling the app working
+## Remaining manual acceptance checks
 
-After modern Xcode installation:
+Build, XCTest, signature validation, local Swift inference, and basic launch now pass. Complete the following checks before calling live captions fully validated:
 
-1. Run both XCTest suites and build the signed application bundle. Resolve any SDK/compiler errors before launch.
+1. Verify app settings, controls, and history behavior in the running development bundle. The two test suites, release build, and basic launch check already pass.
 2. Grant/deny/revoke Speech and Screen/System Audio Recording permissions; verify actionable errors and retry after relaunch. Confirm no microphone request or input indicator is caused by the app.
 3. After authorization, verify actual local zh-CN transcription. The read-only capability probe already reports support, but test with network disconnected, then without the required model assets; unavailable assets must fail explicitly.
 4. Play Mandarin in Safari and another native app. Verify the subtitle output is based on system audio while the microphone is muted/disconnected, and that protected content failures are handled.

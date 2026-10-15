@@ -5,7 +5,7 @@ import Foundation
 final class AppContainer: ObservableObject {
     let settings: AppSettings
     let session: CaptionSession
-    let overlay: SubtitleOverlayController
+    private(set) var overlay: SubtitleOverlayController?
 
     init() {
         let settings = AppSettings()
@@ -13,6 +13,13 @@ final class AppContainer: ObservableObject {
         let session = CaptionSession(capture: ScreenAudioCapture(), speech: AppleSpeechRecognizer(), translator: translator)
         self.settings = settings
         self.session = session
+    }
+
+    /// Waits until the first view task runs so a second hosting graph is not constructed
+    /// while SwiftUI is still resolving the application's StateObject dependencies.
+    func preparePresentation() async {
+        await Task.yield()
+        guard overlay == nil else { return }
         overlay = SubtitleOverlayController(session: session, settings: settings)
     }
 }

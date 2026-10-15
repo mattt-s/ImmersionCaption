@@ -11,6 +11,7 @@ struct ImmersionCaptionApp: App {
         WindowGroup("ImmersionCaption", id: "main") {
             MainView(session: container.session, settings: container.settings)
                 .frame(minWidth: 640, minHeight: 560)
+                .task { await container.preparePresentation() }
         }
         .defaultSize(width: 760, height: 700)
         .commands {

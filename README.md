@@ -2,7 +2,7 @@
 
 A native macOS app for learning English while listening to Mandarin audio from other applications. It turns application audio into English floating subtitles, with recognition and translation performed locally.
 
-**Status: initial implementation, not yet validated as a running macOS app.** The production domain checks and local TranslateGemma smoke tests pass. The full application cannot currently be compiled on the development machine because it has Swift 5.3.2, a macOS 11.1 SDK, and no XCTest runner. Finish installing modern Xcode before using the app. See [validation evidence](docs/VALIDATION.md).
+**Status: local development app built and launched.** With Xcode 27 / Swift 6.4 installed, all 24 automated tests passed, including a real local TranslateGemma request. The release `.app` passed signature verification and opened its main window. Permission-driven audio capture, sustained transcription, and visual overlay acceptance remain to be checked interactively. See [validation evidence](docs/VALIDATION.md).
 
 ## Implemented in source
 
@@ -16,7 +16,7 @@ A native macOS app for learning English while listening to Mandarin audio from o
 - Text-only translation check and overlay preview for setup.
 - Stable partial-transcript flushing, bounded phrase lengths, a three-item pending translation queue, and cancellation/generation checks that reject late results.
 
-These features are implemented but still require the build and manual acceptance checks below. Embedded inference and model management are planned, not implemented.
+These features are implemented; build, automated tests, and basic launch have been verified. The remaining manual acceptance checks are listed below. Embedded inference and model management are planned, not implemented.
 
 ## Requirements
 
@@ -40,6 +40,7 @@ scripts/check-environment.sh
 swift test --package-path Packages/CaptionCore
 swift test
 scripts/build-app.sh
+scripts/check-app-launch.sh
 open build/ImmersionCaption.app
 ```
 
@@ -48,6 +49,8 @@ The build script creates an ad-hoc signed development `.app` with privacy descri
 Set `CODE_SIGN_IDENTITY` to an available development identity to use it instead of ad-hoc signing. Signed distribution, provisioning, hardened runtime, notarization, and App Store packaging have not been configured or validated. If speech authorization fails with an ad-hoc bundle, use an appropriately provisioned development identity and recheck its entitlement.
 
 To install after a successful build, copy `build/ImmersionCaption.app` into Applications. Keep one copy for permission testing so macOS does not confuse development bundles with the same identifier.
+
+`scripts/check-app-launch.sh` leaves the application open and verifies that its process has a visible window. It does not click controls, capture audio, or request macOS privacy permissions.
 
 ## Configure
 
@@ -103,13 +106,16 @@ scripts/test-core-compat.sh
 
 # Sends only the public sample phrases to installed local TranslateGemma:
 scripts/smoke-translation.sh
+
+# Exercise the production Swift HTTP adapter against installed local TranslateGemma:
+IMMERSIONCAPTION_LIVE_TEST=1 swift test --filter LocalTranslationIntegrationTests
 ```
 
-The smoke test uses the production Swift prompt builder and a Python standard-library HTTP client. It does **not** verify the Swift HTTP adapter, microphone exclusion at runtime, audio transcription, permissions, or UI. The full XCTest suites need modern Xcode.
+The smoke script uses the production Swift prompt builder and a Python standard-library HTTP client. The opt-in XCTest instead runs the production Swift HTTP adapter against local Ollama and checks that a short Chinese phrase returns English text; it skips by default so ordinary tests do not depend on a model server. Neither is an automated fluency assessment or a test of live audio, permissions, or overlay interaction. The full XCTest suites need modern Xcode.
 
 ## Known limitations and roadmap
 
-- Full app compilation and end-to-end use are unverified pending modern Xcode; do not treat this as a release build.
+- The current Apple Silicon bundle is an ad-hoc signed development build. Compilation, launch, signature checks, and automated tests pass; live audio, permission handling, sustained use, and visual overlay behavior still need manual acceptance. No notarized release has been produced.
 - On-device Mandarin availability is controlled by macOS. Direct model download/selection is not implemented.
 - Captures aggregate application audio using the first available display filter. There is no per-app selector, audio mixing control, or multi-display subtitle selector.
 - Protected/DRM content or some application audio may be unavailable to capture.

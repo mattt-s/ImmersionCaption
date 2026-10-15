@@ -21,6 +21,9 @@
 ## Verification and delivery
 
 - Run `swift test --package-path Packages/CaptionCore` for business rules; run `swift test` and `scripts/build-app.sh` with modern Xcode tools for adapter/app checks.
+- With local Ollama and translategemma:4b available, opt into the real adapter check using `IMMERSIONCAPTION_LIVE_TEST=1 swift test --filter LocalTranslationIntegrationTests`.
+- After changing startup or overlay ownership, run `scripts/check-app-launch.sh` against the built bundle. It checks process/window metadata and leaves the app open; it does not grant permissions or validate live capture.
+- Do not construct the overlay's NSHostingView inside AppContainer initialization: SwiftUI resolves the StateObject during its own graph update. Defer presentation to the view task to avoid a startup precondition failure.
 - Do not claim that source parsing or core tests prove the macOS app compiles or captures audio.
 - Test lifecycle races, segmentation, loopback enforcement, request/response contracts, cancellation, and overload behavior when changing them.
 - Verify actual screen/audio permission flows, Mandarin model availability, overlay behavior across Spaces, and translation quality on a Mac before release.
