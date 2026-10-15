@@ -1,0 +1,57 @@
+flowchart LR
+    accTitle: ImmersionCaption component architecture
+    accDescr: AppContainer assembles native presentation, a caption session, domain policies, and replaceable local providers. Current adapters connect to macOS frameworks and local Ollama. Embedded inference and direct model management are planned.
+
+    subgraph App["ImmersionCaption.app · composition root: AppContainer"]
+        subgraph Presentation["Presentation · MainActor"]
+            Views["SwiftUI views<br/>MainView · MenuBarView<br/>Controls · Settings · History"]
+            Overlay["Floating subtitles<br/>SubtitleOverlayController<br/>NSPanel + SubtitleView"]
+        end
+
+        Session["CaptionSession · MainActor<br/>Lifecycle · cancellation · stable phrases<br/>Queue · context · in-memory history"]
+        Settings["AppSettings<br/>Appearance + backend preferences"]
+        Core["CaptionCore · local Foundation package<br/>Caption · TranslationInput · SessionState<br/>TranscriptSegmenter · BoundedQueue<br/>TranslationPrompt · LocalEndpoint"]
+
+        subgraph Providers["Application ports → current infrastructure adapters"]
+            Capture["SystemAudioCapturing<br/>↓ ScreenAudioCapture<br/>System audio only · dedicated queue"]
+            Speech["SpeechRecognizing<br/>↓ AppleSpeechRecognizer<br/>On-device Mandarin required"]
+            Translation["TranslationEngine<br/>↓ OllamaTranslationEngine<br/>TranslateGemma request / response"]
+        end
+
+        subgraph Future["Planned · standalone deployment"]
+            Embedded["Embedded inference adapter<br/>Same TranslationEngine interface<br/>App-managed local model files"]
+        end
+    end
+
+    CaptureKit["ScreenCaptureKit<br/>macOS application audio API"]
+    SpeechKit["Speech framework<br/>OS-managed Mandarin model"]
+    Defaults[("UserDefaults<br/>Preferences only")]
+    Ollama["Ollama + translategemma:4b<br/>Separate local process<br/>127.0.0.1:11434"]
+
+    Views -->|"controls / observes"| Session
+    Overlay -->|"observes captions"| Session
+    Views -->|"binds preferences"| Settings
+    Overlay -->|"observes appearance"| Settings
+    Session -->|"business rules / values"| Core
+    Session -->|"capture port"| Capture
+    Session -->|"speech port"| Speech
+    Session -->|"translation port"| Translation
+    Translation -->|"prompt / endpoint policy"| Core
+    Capture -->|"native API"| CaptureKit
+    Speech -->|"on-device API"| SpeechKit
+    Translation <-->|"loopback HTTP"| Ollama
+    Settings -->|"stores preferences"| Defaults
+    Translation -. "replace adapter (planned)" .-> Embedded
+
+    classDef presentation fill:#eaf2ff,stroke:#3b67b1,color:#172b4d,stroke-width:1.5px
+    classDef application fill:#e8f5f1,stroke:#23836d,color:#153e35,stroke-width:1.5px
+    classDef domain fill:#f2ecfc,stroke:#815bb3,color:#382254,stroke-width:1.5px
+    classDef adapter fill:#fff4df,stroke:#b9822d,color:#513b16,stroke-width:1.5px
+    classDef service fill:#f2f5f8,stroke:#73869a,color:#26384a,stroke-width:1.5px
+    classDef planned fill:#fbfbfc,stroke:#8c8c9e,color:#626275,stroke-dasharray:6 4
+    class Views,Overlay presentation
+    class Session application
+    class Core domain
+    class Capture,Speech,Translation,Settings adapter
+    class CaptureKit,SpeechKit,Defaults,Ollama service
+    class Embedded planned

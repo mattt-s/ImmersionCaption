@@ -28,5 +28,6 @@
 - Test lifecycle races, segmentation, loopback enforcement, request/response contracts, cancellation, and overload behavior when changing them.
 - Verify actual screen/audio permission flows, Mandarin model availability, overlay behavior across Spaces, and translation quality on a Mac before release.
 - Maintain README.md, ARCHITECTURE.md, and docs/VALIDATION.md with implementation changes. Distinguish implemented, verified, and planned features.
+- Keep docs/diagrams/architecture.mmd and its SVG/PNG exports in sync when changing the architecture; regeneration instructions are in docs/diagrams/README.md. Gray planned components must not be presented as implemented.
 - Use Git, preserve user work, keep generated bundles, models, and personal history out of commits. Do not add external dependencies without a concrete need.
 - Standalone embedded inference, direct model management, notarization, and distribution remain planned; do not imply they are implemented.

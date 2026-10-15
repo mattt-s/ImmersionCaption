@@ -4,20 +4,11 @@ ImmersionCaption uses a small MVVM-style presentation layer with a dedicated app
 
 ## Responsibilities and dependencies
 
-```mermaid
-flowchart TD
-    Root[AppContainer composition root] --> UI[SwiftUI views + AppKit overlay]
-    Root --> Session[CaptionSession: MainActor]
-    UI --> Session
-    Session --> Ports[Audio, speech, translation protocols]
-    Session --> Core[CaptionCore: values, segmentation, prompt policy, bounded queue]
-    Capture[ScreenAudioCapture] -. implements .-> Ports
-    Speech[AppleSpeechRecognizer] -. implements .-> Ports
-    Ollama[OllamaTranslationEngine] -. implements .-> Ports
-    Embedded[Future embedded inference adapter] -. implements .-> Ports
-    Settings[AppSettings: preferences only] --> UI
-    Root --> Settings
-```
+![ImmersionCaption architecture: presentation, caption session, domain policies, replaceable providers, local services, and planned standalone inference](docs/diagrams/architecture.svg)
+
+[Open the full-size SVG](docs/diagrams/architecture.svg) · [PNG](docs/diagrams/architecture.png) · [Editable Mermaid source](docs/diagrams/architecture.mmd)
+
+This is a component map, not a runtime sequence. Solid arrows show existing calls, observations, or policy dependencies. Each provider box pairs an application protocol with its current infrastructure adapter. The dashed arrow and gray section show the planned embedded replacement; they are not implemented. AppContainer assembles the current providers and settings and defers overlay creation until view startup. The sequence diagram below shows the actual audio-to-caption flow.
 
 - **CaptionCore** has no UI, HTTP, Speech, ScreenCaptureKit, Combine, or dependency on Ollama's transport. Its `TranslationPrompt` is a named TranslateGemma policy helper; other translation models can ignore it. Values and bounded queues remain provider-neutral.
 - **Application/Ports.swift** defines `SystemAudioCapturing`, `SpeechRecognizing`, and `TranslationEngine`. Capture and speech exchange native `CMSampleBuffer` audio to avoid unnecessary conversion. That boundary is intentionally macOS-specific; replaceable speech adapters must accept or convert these buffers. Transcript and translation values are backend-independent.

@@ -18,6 +18,12 @@ A native macOS app for learning English while listening to Mandarin audio from o
 
 These features are implemented; build, automated tests, and basic launch have been verified. The remaining manual acceptance checks are listed below. Embedded inference and model management are planned, not implemented.
 
+## Architecture
+
+![ImmersionCaption architecture diagram](docs/diagrams/architecture.svg)
+
+The caption session coordinates replaceable audio, speech, and translation providers. The current app uses local Apple speech recognition and a separate Ollama process; the gray section shows planned embedded inference and model management. See [ARCHITECTURE.md](ARCHITECTURE.md) for responsibilities, runtime data flow, and concurrency, or open the [editable diagram](docs/diagrams/architecture.mmd).
+
 ## Requirements
 
 - macOS 13+; Apple Silicon recommended. An M2 Pro with 16 GB is a suitable initial target, but sustained audio performance has not been measured.
