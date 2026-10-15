@@ -11,7 +11,7 @@ final class AppContainer: ObservableObject {
         let settings = AppSettings()
         let translator = OllamaTranslationEngine(endpoint: { settings.endpoint }, model: { settings.model })
         let session = CaptionSession(capture: CoreAudioTapCapture(), speech: AppleSpeechRecognizer(),
-                                     translator: translator, captionLength: { settings.captionLength })
+                                     translator: translator)
         self.settings = settings
         self.session = session
     }

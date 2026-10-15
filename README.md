@@ -4,7 +4,7 @@
 
 A native macOS app for learning English while listening to Mandarin audio from other applications. It turns application audio into English floating subtitles, with recognition and translation performed locally.
 
-**Status: local development app built and launched.** Version 0.3.1 fixes a repeated-caption path during revised transcripts with zero timestamps, tightens translation instructions, and uses temperature 0. Core Audio audio-only capture, the icon, and Short/Balanced caption controls remain available; macOS 14.2+ is required. Permission-driven audio capture, sustained transcription, and visual overlay acceptance remain to be checked interactively. See [validation evidence](docs/VALIDATION.md) for current test/build results.
+**Status: local development app built and launched.** Version 0.4.0 removes character-count, duration, pause, and stable-text cuts. Available complete sentences take priority over commas; unfinished text carries across recognizer maintenance restarts. Core Audio audio-only capture and the generated app icon remain available; macOS 14.2+ is required. Permission-driven audio capture, sustained transcription, and visual overlay acceptance remain to be checked interactively. See [validation evidence](docs/VALIDATION.md) for current test/build results.
 
 ## Implemented in source
 
@@ -17,7 +17,7 @@ A native macOS app for learning English while listening to Mandarin audio from o
 - A native Finder/Dock app icon, built from the generated [master artwork](Resources/Artwork/AppIcon.png).
 - Persistent preferences; memory-only history capped at 300 entries; explicit text export.
 - Text-only translation check and overlay preview for setup.
-- Short clauses using punctuation, recognized-word pauses, word boundaries, duration/length targets, and stable-draft flushing; a three-item pending queue; cancellation/generation checks that reject late results.
+- Punctuation-based sentences/clauses, with complete sentences preferred and no character-count or timer cuts; a three-item pending queue; cancellation/generation checks that reject late results.
 
 These features are implemented; build, automated tests, and basic launch have been verified. The remaining manual acceptance checks are listed below. Embedded inference and model management are planned, not implemented.
 
@@ -78,7 +78,6 @@ Only explicit HTTP loopback addresses are accepted. HTTP redirects and proxies a
 1. Start Mandarin playback in another app, then select **Start translating**.
 2. Allow **Speech Recognition** and **System Audio Recording** when macOS requests them. Screen recording and microphone access are not needed. The audio-only toggle may appear inside Privacy & Security → Screen & System Audio Recording → System Audio Recording Only. If you previously installed version 0.2 or earlier, macOS may retain its old screen-recording entry; you can disable that broader permission and allow audio-only access for this build. Quit older running copies before testing the replacement. Restart translation (or reopen the app) after changing permissions.
 3. Adjust the overlay in Settings; enable **Preview subtitle overlay** to see changes during silence. Disable preview when finished.
-   Choose **Short** (default) for smaller phrases, or **Balanced** for longer context. Caption-length changes apply when you next start or resume.
 4. Pause releases capture and recognition, discards pending translations, and hides the current subtitle. Resume starts fresh recognition/context; it does not replay audio heard while paused.
 5. Stop cancels processing. Closing the main window leaves menu bar controls available. Quit from the menu bar to exit.
 
@@ -86,15 +85,16 @@ Subtitles disappear 12 seconds after their last update. History remains for the 
 
 ## Latency and translation quality
 
-The splitter combines several cues rather than assuming that every silence ends a sentence:
+Translation inputs follow recognized punctuation:
 
-- **Short** targets 28 recognized characters or approximately 3.2 seconds of speech. It accepts gaps of at least 350 ms between recognized words after a minimum four-character phrase.
-- **Balanced** targets 44 characters or approximately 4.5 seconds, with a 450 ms word-gap threshold.
-- The speech adapter requests automatic punctuation. Chinese sentence punctuation ends a phrase immediately. Commas/colons can end clauses once they contain at least 10 characters; numeric commas and time colons are preserved.
-- Length and duration splits prefer recognized boundaries. Because the recognizer can group a whole clause into one segment, oversized/missing units fall back to Foundation word tokenization (then grapheme boundaries if needed). A long unbroken Latin proper name may exceed the target. These are soft targets, not a fixed English word count.
-- A draft unchanged for 650 ms flushes as a fallback. This is text stability, not an acoustic silence detector. Short pauses alone do not prove that the meaning is complete.
+- If a complete sentence is already available, it is sent intact, including its commas and closing quotation marks. Sentence-ending punctuation is searched throughout the available text, without a length limit.
+- If no sentence ending is available yet, a comma, colon, or semicolon may commit a clause after at least ten characters. This is a minimum for using that punctuation, not a maximum input length. Numeric separators such as `1,000` and `10:30` are preserved. Short comma fragments wait.
+- Character count, speech duration, gaps between words, and 650 ms of unchanged text do **not** trigger translation. The old Short/Balanced selector has been removed; saved values from older versions are ignored.
+- A real final recognition result commits any remaining unpunctuated utterance intact. The automatic 45-second maintenance restart no longer fabricates a final result or flushes a fragment; unfinished recognized text continues into the next request. Pause/stop discards unfinished text.
 
-Apple's [recognized-word timestamps](https://developer.apple.com/documentation/speech/sftranscriptionsegment/timestamp) supply pause/duration cues. No additional model, paid API, or raw-audio VAD dependency is added. Spoken-language boundaries remain heuristic; these thresholds are not end-to-end latency guarantees. Recognition requests still rotate every 45 seconds, with a possible gap because there is no overlapping audio buffer.
+This favors complete meaning over a fixed caption length. Text can wait longer if recognition supplies no punctuation or actual final result. Commas are heuristic clause cues, not a semantic completeness model, and partial punctuation may later change. Timings are used for revision alignment only. Request transitions still have a possible audio gap because there is no overlapping audio buffer; carrying text does not recover unheard audio.
+
+Subtitle wrapping and font scaling happen after translation. The overlay is still bounded to six English lines and three Chinese lines; very long translations can be visually truncated. Automatic pagination is not implemented. Long inputs can also exceed the local model's context/output capacity; there is no promise that arbitrary-length speech can be translated in one request.
 
 Only one translation runs at a time. At most three phrases wait behind it; overflow discards the oldest pending phrase and shows a skipped-phrase count. This limits accumulated backlog, not worst-case end-to-end latency. Steady speech can still outpace the model. The first translation may take several seconds to load the model.
 

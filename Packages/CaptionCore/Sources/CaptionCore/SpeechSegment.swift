@@ -14,12 +14,3 @@ public struct SpeechSegment: Equatable {
         self.duration = duration
     }
 }
-
-/// Readability presets. Character counts are targets; long Latin proper names stay intact.
-public enum CaptionLength: String, CaseIterable {
-    case short, balanced
-
-    public var maximumCharacters: Int { self == .short ? 28 : 44 }
-    public var maximumDuration: TimeInterval { self == .short ? 3.2 : 4.5 }
-    public var pauseThreshold: TimeInterval { self == .short ? 0.35 : 0.45 }
-}

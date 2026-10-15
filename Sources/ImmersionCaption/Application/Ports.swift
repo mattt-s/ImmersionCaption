@@ -10,6 +10,8 @@ protocol SystemAudioCapturing: AnyObject {
     func stop() async
 }
 
+/// A cumulative hypothesis within one recognition request. isFinal means actual recognizer
+/// completion; maintenance rotations change the ID without forcing unfinished speech final.
 struct TranscriptEvent {
     let utteranceID: UUID
     let text: String

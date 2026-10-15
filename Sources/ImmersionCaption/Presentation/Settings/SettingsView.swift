@@ -1,5 +1,4 @@
 import SwiftUI
-import CaptionCore
 
 struct SettingsView: View {
     @ObservedObject var settings: AppSettings
@@ -7,11 +6,7 @@ struct SettingsView: View {
     var body: some View {
         Form {
             Section("Subtitles") {
-                Picker("Caption length", selection: $settings.captionLength) {
-                    Text("Short").tag(CaptionLength.short)
-                    Text("Balanced").tag(CaptionLength.balanced)
-                }
-                Text("Short favors smaller phrases. Changes apply when you next start or resume.")
+                Text("Translations follow sentence and clause punctuation. Unfinished speech waits for a boundary or a final recognition result.")
                     .font(.caption).foregroundStyle(.secondary)
                 HStack {
                     Text("Font size")

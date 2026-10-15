@@ -2,6 +2,19 @@
 
 Initial development and subsequent build verification: 2026-10-15 (Asia/Tokyo).
 
+## Version 0.4.0: punctuation boundaries without forced cuts
+
+Changes implemented on 2026-10-15:
+
+- Removed source character limits, duration targets, word-gap cuts, tokenization fallback cuts, and the 650 ms stable-text translation timer. `CaptionLength`, the Short/Balanced picker, and its settings/composition-root wiring were removed; older stored preference values are ignored. The manual sample path also no longer truncates text at 500 characters.
+- `TranscriptSegmenter` now searches all pending text for a complete punctuated sentence first. Available sentence endings take priority over earlier commas even for long text. When no complete sentence is available in a partial, a comma/colon/semicolon may delimit a clause after a minimum ten characters (a floor, never a maximum length). Numeric separators, common English abbreviations, and adjacent closing quotation marks are handled. A real final recognition result can commit an unpunctuated utterance intact.
+- The 45-second maintenance rotation no longer fabricates a final recognition event. `beginUtterance()` carries only unfinished text between request IDs and resets timing/revision anchors. Current request UTF-16 timing ranges are offset into the combined text. Pause/stop clears the carry. This preserves recognized text across maintenance boundaries; it does not recover audio lost during request replacement.
+- Reworked domain regressions around sentence priority, long input without forced cuts, pause/duration rejection, permitted punctuation clauses, final utterances, numeric separators, quotation marks, earlier revisions, and replay prevention. Added continuation tests for multiple rotations (including no-callback rotations), emoji/UTF-16 offsets, real timing revisions after a rotation, and already committed text. App tests check an unpunctuated draft still waits beyond the removed timeout, request continuity, pause cleanup, real finals, and no manual-input truncation.
+- **33 domain tests and 26 app/session/adapter tests passed: 59 total, zero remaining failures.** The initial optional live model check could not reach Ollama; after reopening the installed app, the suite passed including production local TranslateGemma inference (approximately 4.69 seconds; not audio latency). The corrected continuation/timing fixtures were rerun and passed separately. The 24-check compatibility runner passed with the new intact-input expectations.
+- Release app build, code signature verification, plist validation, new-instance launch/window checking, archive integrity, and version/audio-only-permission metadata checks passed. The Mermaid source and SVG/PNG exports were updated to remove `CaptionLength` and reflect punctuation segmentation. The rendered PNG was inspected.
+
+**Behavior and acceptance limits:** punctuation remains an ASR heuristic, not a semantic completeness detector. A partial comma may be committed before a later full stop arrives; already translated clauses are not retracted. Without punctuation or a real final result, text waits longer. Long source sentences are no longer shortened to fit the overlay or model: the existing six-English-line/three-Chinese-line panel can visually truncate long translations, and the model retains context/output limits. Pagination is not implemented. Live replay of the user's original audio, long-running recognition, and perceptual caption quality remain interactive checks.
+
 ## Version 0.3.1: replayed clauses and translation consistency
 
 Changes implemented on 2026-10-15:

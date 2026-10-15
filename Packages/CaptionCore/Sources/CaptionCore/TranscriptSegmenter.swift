@@ -1,37 +1,31 @@
 import Foundation
 
-/// Commits short speech clauses using punctuation, word timing, and size/duration targets.
-/// Timed units and Foundation word boundaries preserve lexical units and align revisions.
-/// The caller flushes stable drafts and resets when the recognition request changes.
+/// Commits complete punctuated sentences, or punctuation-delimited clauses while a
+/// sentence is still being recognized. Timing is used only to align revisions, never to cut text.
 public struct TranscriptSegmenter {
     private var committed = ""
     private var committedEndTime: TimeInterval?
     private var alignedConsumedCharacters = 0
     private var hypothesis = ""
     private var words: [(value: SpeechSegment, range: Range<String.Index>)] = []
-    public let maximumCharacters: Int
-    public let maximumDuration: TimeInterval
-    public let pauseThreshold: TimeInterval
-    private let minimumClauseCharacters: Int
+    private var continuation = ""
+    private let minimumClauseCharacters = 10
 
-    public init(maximumCharacters: Int = 28, maximumDuration: TimeInterval = 3.2,
-                pauseThreshold: TimeInterval = 0.35, minimumClauseCharacters: Int = 10) {
-        self.maximumCharacters = max(8, maximumCharacters)
-        self.maximumDuration = max(0.5, maximumDuration)
-        self.pauseThreshold = max(0.1, pauseThreshold)
-        self.minimumClauseCharacters = max(2, min(minimumClauseCharacters, self.maximumCharacters))
-    }
+    public init() {}
 
-    public init(profile: CaptionLength) {
-        self.init(maximumCharacters: profile.maximumCharacters,
-                  maximumDuration: profile.maximumDuration,
-                  pauseThreshold: profile.pauseThreshold)
+    /// Carries an unfinished phrase across a recognition-request rotation. Native request
+    /// boundaries are not linguistic boundaries; timing and revision offsets restart here.
+    public mutating func beginUtterance() {
+        let pending = hypothesis.isEmpty ? continuation : String(hypothesis[pendingStart()...])
+        reset()
+        continuation = pending
     }
 
     /// Ranges refer to the untrimmed cumulative text. Invalid timing/ranges are ignored safely.
     public mutating func ingest(_ text: String, isFinal: Bool, segments: [SpeechSegment] = []) -> [String] {
-        alignedConsumedCharacters = TranscriptCursor.align(alignedConsumedCharacters, from: hypothesis, to: text)
-        hypothesis = text
+        let combined = continuation + text
+        alignedConsumedCharacters = TranscriptCursor.align(alignedConsumedCharacters, from: hypothesis, to: combined)
+        hypothesis = combined
         words = segments.compactMap { segment in
             guard segment.startTime.isFinite, segment.duration.isFinite,
                   segment.startTime >= 0, segment.duration >= 0, segment.endTime.isFinite,
@@ -39,13 +33,15 @@ public struct TranscriptSegmenter {
                   segment.range.location >= 0,
                   segment.range.location <= text.utf16.count,
                   segment.range.length <= text.utf16.count - segment.range.location,
-                  let range = Range(segment.range, in: text) else { return nil }
+                  let range = Range(NSRange(location: segment.range.location + continuation.utf16.count,
+                                             length: segment.range.length), in: combined) else { return nil }
             return (value: segment, range: range)
         }.sorted { $0.range.lowerBound < $1.range.lowerBound }
         return drain(flush: isFinal)
     }
 
-    /// Commits the pending tail after a stable interval without inventing a sentence ending.
+    /// Completes an actual final recognition result. Never call this for a timer, pause,
+    /// or request rotation: those events do not establish a complete utterance.
     public mutating func flush() -> [String] { drain(flush: true) }
 
     public mutating func reset() {
@@ -53,6 +49,7 @@ public struct TranscriptSegmenter {
         committedEndTime = nil
         alignedConsumedCharacters = 0
         hypothesis = ""
+        continuation = ""
         words.removeAll()
     }
 
@@ -102,78 +99,61 @@ public struct TranscriptSegmenter {
     }
 
     private func boundary(after start: String.Index, flush: Bool) -> String.Index? {
-        let tail = hypothesis[start...]
-        let limit = hypothesis.index(start, offsetBy: min(maximumCharacters, tail.count))
-        let pendingWords = words.filter { $0.range.lowerBound >= start }
-        var candidates: [String.Index] = []
-        let strong: Set<Character> = ["。", "！", "？", "!", "?", "；", ";", "\n"]
-        let soft: Set<Character> = ["，", ",", "：", ":"]
+        var clauseEnd: String.Index?
+        let sentencePunctuation: Set<Character> = ["。", "！", "？", "!", "?", "\n"]
+        let clausePunctuation: Set<Character> = ["，", ",", "：", ":", "；", ";"]
         var count = 0
-        for index in tail.indices {
+        for index in hypothesis[start...].indices {
             count += 1
-            guard count <= maximumCharacters else { break }
             let character = hypothesis[index]
             let next = hypothesis.index(after: index)
+            if sentencePunctuation.contains(character) || isSentencePeriod(at: index) {
+                // Prefer the first complete sentence, even if a comma occurs earlier or
+                // the sentence is longer than a subtitle panel can display at once.
+                return includingClosingQuotes(after: next)
+            }
             let numericSeparator = (character == "," || character == ":") && index > start &&
                 next < hypothesis.endIndex && hypothesis[hypothesis.index(before: index)].isNumber &&
                 hypothesis[next].isNumber
-            if strong.contains(character) ||
-                (soft.contains(character) && !numericSeparator && count >= minimumClauseCharacters) {
-                candidates.append(hypothesis.index(after: index))
+            if clauseEnd == nil, clausePunctuation.contains(character), !numericSeparator,
+               count >= minimumClauseCharacters {
+                clauseEnd = includingClosingQuotes(after: next)
             }
         }
-
-        for (left, right) in zip(pendingWords, pendingWords.dropFirst()) {
-            let end = right.range.lowerBound
-            if right.value.startTime - left.value.endTime >= pauseThreshold - 0.000_001,
-               end <= limit, hypothesis.distance(from: start, to: end) >= min(4, minimumClauseCharacters) {
-                candidates.append(end)
-            }
-        }
-        if let first = pendingWords.first {
-            // Continuous fast speech may have no useful silence: bound its time span too.
-            if let timedEnd = pendingWords.first(where: {
-                $0.value.endTime - first.value.startTime >= maximumDuration - 0.000_001
-            })?.range.upperBound, timedEnd <= limit {
-                candidates.append(timedEnd)
-            }
-        }
-
-        if tail.count >= maximumCharacters {
-            if let wordEnd = pendingWords.map({ $0.range.upperBound }).filter({ $0 <= limit }).max() {
-                candidates.append(wordEnd)
-            } else if let first = pendingWords.first, first.range.lowerBound == start,
-                      isUnbrokenLatinWord(hypothesis[first.range]) {
-                // A long proper name may exceed the target; a multiword ASR unit may not.
-                candidates.append(first.range.upperBound)
-            } else {
-                candidates.append(textBoundary(after: start, limit: limit))
-            }
-        }
-        if flush { candidates.append(hypothesis.endIndex) }
-        return candidates.filter { $0 > start }.min()
+        // An actual final result can contain a complete unpunctuated utterance. Keep it
+        // intact rather than subdividing its commas. Partial text otherwise waits.
+        if flush { return hypothesis.endIndex }
+        return clauseEnd
     }
 
-    private func isUnbrokenLatinWord(_ value: Substring) -> Bool {
-        !value.isEmpty && value.unicodeScalars.allSatisfy {
-            $0.isASCII && CharacterSet.alphanumerics.contains($0)
+    private func includingClosingQuotes(after end: String.Index) -> String.Index {
+        let closers: Set<Character> = ["”", "’", "」", "』", "）", ")", "]", "}", "\"", "'"]
+        var end = end
+        while end < hypothesis.endIndex, closers.contains(hypothesis[end]) {
+            end = hypothesis.index(after: end)
         }
+        return end
     }
 
-    /// Apple recognition units can be whole clauses. Tokenize those locally instead of
-    /// allowing one oversized unit to make an arbitrarily long subtitle.
-    private func textBoundary(after start: String.Index, limit: String.Index) -> String.Index {
-        var lastBoundary: String.Index?
-        var firstWord: Range<String.Index>?
-        hypothesis.enumerateSubstrings(in: start..<hypothesis.endIndex, options: [.byWords, .substringNotRequired]) {
-            _, range, _, stop in
-            if firstWord == nil { firstWord = range }
-            if range.upperBound <= limit { lastBoundary = range.upperBound }
-            else { stop = true }
+    /// Avoids interpreting decimal points, URLs, and common English abbreviations as stops.
+    private func isSentencePeriod(at index: String.Index) -> Bool {
+        guard hypothesis[index] == "." else { return false }
+        let next = hypothesis.index(after: index)
+        guard next == hypothesis.endIndex || hypothesis[next].isWhitespace ||
+              includingClosingQuotes(after: next) > next else { return false }
+        var tokenStart = index
+        while tokenStart > hypothesis.startIndex {
+            let previous = hypothesis.index(before: tokenStart)
+            let character = hypothesis[previous]
+            guard character == "." || character.unicodeScalars.allSatisfy({
+                $0.isASCII && CharacterSet.letters.contains($0)
+            }) else { break }
+            tokenStart = previous
         }
-        if let lastBoundary = lastBoundary, lastBoundary > start { return lastBoundary }
-        if let firstWord = firstWord, firstWord.lowerBound == start,
-           isUnbrokenLatinWord(hypothesis[firstWord]) { return firstWord.upperBound }
-        return limit
+        let token = String(hypothesis[tokenStart..<next]).lowercased()
+        let abbreviations: Set<String> = ["mr.", "mrs.", "ms.", "dr.", "prof.", "vs.", "etc.", "e.g.", "i.e."]
+        if abbreviations.contains(token) { return false }
+        let initials = token.split(separator: ".")
+        return !(initials.count > 1 && initials.allSatisfy { $0.count == 1 })
     }
 }

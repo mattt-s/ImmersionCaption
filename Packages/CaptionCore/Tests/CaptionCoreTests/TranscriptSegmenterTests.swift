@@ -17,17 +17,17 @@ final class TranscriptSegmenterTests: XCTestCase {
         XCTAssertEqual(segmenter.flush(), ["我们明天去南京"])
     }
 
-    func testStableDraftDoesNotReplayOnNextUpdate() {
+    func testFinalizedTailDoesNotReplayOnNextUpdate() {
         var segmenter = TranscriptSegmenter()
         _ = segmenter.ingest("今天很开心", isFinal: false)
         XCTAssertEqual(segmenter.flush(), ["今天很开心"])
         XCTAssertEqual(segmenter.ingest("今天很开心因为见到了你。", isFinal: true), ["因为见到了你。"])
     }
 
-    func testBoundsLongPhrasesWithoutSplittingGraphemes() {
-        var segmenter = TranscriptSegmenter(maximumCharacters: 8)
+    func testKeepsLongPhrasesIntact() {
+        var segmenter = TranscriptSegmenter()
         let text = String(repeating: "好", count: 18)
-        XCTAssertEqual(segmenter.ingest(text, isFinal: true).map { $0.count }, [8, 8, 2])
+        XCTAssertEqual(segmenter.ingest(text, isFinal: true).map { $0.count }, [18])
     }
 
     func testPunctuationAndWhitespaceDoNotBecomeCaptions() {

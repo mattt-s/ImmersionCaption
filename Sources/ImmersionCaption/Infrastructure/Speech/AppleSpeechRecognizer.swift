@@ -24,8 +24,6 @@ final class AppleSpeechRecognizer: SpeechRecognizing {
     private var rotation: Task<Void, Never>?
     private var sessionID = UUID()
     private var requestID = UUID()
-    private var latestText = ""
-    private var latestSegments: [SpeechSegment] = []
     private var onTranscript: (@MainActor (TranscriptEvent) -> Void)?
     private var onFailure: (@MainActor (Error) -> Void)?
 
@@ -59,8 +57,6 @@ final class AppleSpeechRecognizer: SpeechRecognizing {
         recognitionTask?.cancel(); recognitionTask = nil
         onTranscript = nil
         onFailure = nil
-        latestText = ""
-        latestSegments = []
     }
 
     private func beginRequest() {
@@ -69,8 +65,6 @@ final class AppleSpeechRecognizer: SpeechRecognizing {
         requestID = UUID()
         let requestToken = requestID
         let sessionToken = sessionID
-        latestText = ""
-        latestSegments = []
         let request = SFSpeechAudioBufferRecognitionRequest()
         request.requiresOnDeviceRecognition = true
         request.shouldReportPartialResults = true
@@ -87,8 +81,6 @@ final class AppleSpeechRecognizer: SpeechRecognizing {
             Task { @MainActor in
                 guard let self, self.sessionID == sessionToken, self.requestID == requestToken else { return }
                 if let text {
-                    self.latestText = text
-                    self.latestSegments = segments
                     self.onTranscript?(TranscriptEvent(utteranceID: requestToken, text: text, isFinal: final, segments: segments))
                 }
                 if final {
@@ -101,11 +93,11 @@ final class AppleSpeechRecognizer: SpeechRecognizing {
                 }
             }
         }
-        // Rotate before legacy recognizer duration limits; flush its last hypothesis first.
+        // Rotate before legacy limits without inventing a final utterance. The session
+        // carries unfinished text when the next request ID arrives.
         rotation = Task { [weak self] in
             do { try await Task.sleep(nanoseconds: 45_000_000_000) } catch { return }
             guard let self, self.sessionID == sessionToken, self.requestID == requestToken else { return }
-            self.onTranscript?(TranscriptEvent(utteranceID: requestToken, text: self.latestText, isFinal: true, segments: self.latestSegments))
             self.recognitionTask?.cancel()
             self.beginRequest()
         }
