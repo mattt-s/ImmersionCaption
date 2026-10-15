@@ -1,0 +1,8 @@
+[
+  {"source":"别着急，咱们一步一步来。","intent":"Reassure someone; take it one step at a time. No urgency, no literal walking."},
+  {"source":"这事儿八字还没一撇呢。","intent":"It is too early to say; nothing is settled yet. Avoid literal Chinese character references."},
+  {"source":"你可别放我鸽子啊。","intent":"Ask someone not to stand the speaker up or bail. No birds."},
+  {"source":"我也不是非得今天拿到，明天也行。","intent":"Getting it tomorrow is acceptable. Preserve the negation and flexibility."},
+  {"source":"他可能只是没看到消息，别想太多。","intent":"He may simply have missed the message. Preserve uncertainty and reassurance."},
+  {"source":"这个价格有点离谱，我们再看看吧。","intent":"The price is unreasonable; suggest looking around. Conversational and mildly critical."}
+]
