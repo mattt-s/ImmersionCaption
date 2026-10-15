@@ -103,11 +103,124 @@ final class SpeechAudioSinkTests: XCTestCase {
         sink.stop()
     }
 
+    func testPauseClosesInputAndBuffersNextSpeechUntilFinalizedRequestIsReplaced() throws {
+        var now: TimeInterval = 0
+        var level = 0.1
+        let sink = SpeechAudioSink(clock: { now }, measure: { _ in level })
+        let session = UUID(), request = UUID()
+        let old = RecordingRequest()
+        let samples = try makeSamples(count: 130)
+        sink.start(old, sessionID: session, requestID: request)
+        sink.confirmSpeech(sessionID: session, requestID: request)
+        for sample in samples.prefix(20) { _ = sink.append(sample, sessionID: session); now += 0.01 }
+        level = 0
+        for sample in samples[20..<119] { _ = sink.append(sample, sessionID: session); now += 0.01 }
+        XCTAssertFalse(sink.endIfPaused(sessionID: session, requestID: request))
+        _ = sink.append(samples[119], sessionID: session)
+        XCTAssertTrue(sink.endIfPaused(sessionID: session, requestID: request))
+        XCTAssertEqual(old.endCount, 1)
+        XCTAssertFalse(sink.endIfPaused(sessionID: session, requestID: request))
+        level = 0.1
+        _ = sink.append(samples[120], sessionID: session)
+        _ = sink.append(samples[121], sessionID: session)
+        XCTAssertEqual(old.times.count, 120)
+        let next = RecordingRequest()
+        sink.start(next, sessionID: session)
+        XCTAssertEqual(next.times.count, 2)
+        XCTAssertEqual(next.times[0], 1.2, accuracy: 0.000_001)
+        XCTAssertEqual(next.times[1], 1.21, accuracy: 0.000_001)
+        sink.stop()
+    }
+
+    func testMissingCallbacksAfterRecognizedSpeechAlsoFinishWithoutWaitingFortyFiveSeconds() throws {
+        var now: TimeInterval = 0
+        let sink = SpeechAudioSink(clock: { now }, measure: { _ in 0.1 })
+        let session = UUID(), request = UUID()
+        sink.start(RecordingRequest(), sessionID: session, requestID: request)
+        for sample in try makeSamples(count: 20) { _ = sink.append(sample, sessionID: session) }
+        sink.confirmSpeech(sessionID: session, requestID: request)
+        now = 0.99
+        XCTAssertFalse(sink.endIfPaused(sessionID: session, requestID: request))
+        now = 1
+        XCTAssertTrue(sink.endIfPaused(sessionID: session, requestID: request))
+        sink.stop()
+    }
+
+    func testQuietWaitsForItsOwnRecognizedSpeechAndRejectsRetiredRequestTokens() throws {
+        var now: TimeInterval = 0
+        let sink = SpeechAudioSink(clock: { now }, measure: { _ in 0.1 })
+        let session = UUID(), request = UUID()
+        sink.start(RecordingRequest(), sessionID: session, requestID: request)
+        for sample in try makeSamples(count: 20) { _ = sink.append(sample, sessionID: session) }
+        now = 2
+        XCTAssertFalse(sink.endIfPaused(sessionID: session, requestID: request))
+        sink.confirmSpeech(sessionID: session, requestID: UUID())
+        sink.confirmSpeech(sessionID: UUID(), requestID: request)
+        XCTAssertFalse(sink.endIfPaused(sessionID: session, requestID: request))
+        sink.confirmSpeech(sessionID: session, requestID: request)
+        XCTAssertFalse(sink.endIfPaused(sessionID: UUID(), requestID: request))
+        XCTAssertFalse(sink.endIfPaused(sessionID: session, requestID: UUID()))
+        XCTAssertTrue(sink.endIfPaused(sessionID: session, requestID: request))
+        sink.stop()
+    }
+
+    func testResumedAudioCancelsQuietAndReplacementResetsSpeechConfirmation() throws {
+        var now: TimeInterval = 0
+        let sink = SpeechAudioSink(clock: { now }, measure: { _ in 0.1 })
+        let session = UUID(), request = UUID(), nextRequest = UUID()
+        let samples = try makeSamples(count: 20)
+        sink.start(RecordingRequest(), sessionID: session, requestID: request)
+        sink.confirmSpeech(sessionID: session, requestID: request)
+        for sample in samples { _ = sink.append(sample, sessionID: session) }
+        now = 0.9
+        _ = sink.append(samples[0], sessionID: session)
+        now = 1.1
+        XCTAssertFalse(sink.endIfPaused(sessionID: session, requestID: request))
+        sink.beginFinalization()
+        for sample in samples { _ = sink.append(sample, sessionID: session) }
+        sink.start(RecordingRequest(), sessionID: session, requestID: nextRequest)
+        now = 3
+        XCTAssertFalse(sink.endIfPaused(sessionID: session, requestID: nextRequest))
+        sink.confirmSpeech(sessionID: session, requestID: request)
+        XCTAssertFalse(sink.endIfPaused(sessionID: session, requestID: nextRequest))
+        sink.confirmSpeech(sessionID: session, requestID: nextRequest)
+        XCTAssertTrue(sink.endIfPaused(sessionID: session, requestID: nextRequest))
+        sink.stop()
+    }
+
+    func testInitialSilenceCannotEndEvenWithAnUnexpectedDraft() throws {
+        var now: TimeInterval = 0
+        let sink = SpeechAudioSink(clock: { now }, measure: { _ in 0 })
+        let session = UUID(), request = UUID()
+        sink.start(RecordingRequest(), sessionID: session, requestID: request)
+        sink.confirmSpeech(sessionID: session, requestID: request)
+        for sample in try makeSamples(count: 120) { _ = sink.append(sample, sessionID: session) }
+        now = 10
+        XCTAssertFalse(sink.endIfPaused(sessionID: session, requestID: request))
+        sink.stop()
+    }
+
+    func testInvalidActivePCMStopsInsteadOfMistakingItForSilence() throws {
+        let sink = SpeechAudioSink(measure: { _ in throw SpeechError.unsupportedAudioFormat })
+        let session = UUID(), request = UUID()
+        sink.start(RecordingRequest(), sessionID: session, requestID: request)
+        let sample = try makeSamples(count: 1)[0]
+        guard case .unsupportedAudioFormat? = sink.append(sample, sessionID: session) else {
+            return XCTFail("Expected a visible audio format error")
+        }
+        XCTAssertNil(sink.append(sample, sessionID: session))
+        XCTAssertFalse(sink.endIfPaused(sessionID: session, requestID: request))
+        sink.stop()
+    }
+
     private func makeSamples(count: Int) throws -> [CMSampleBuffer] {
         let format = try XCTUnwrap(AVAudioFormat(commonFormat: .pcmFormatFloat32,
                                                 sampleRate: 48_000, channels: 2, interleaved: true))
         let pcm = try XCTUnwrap(AVAudioPCMBuffer(pcmFormat: format, frameCapacity: 480))
         pcm.frameLength = 480
+        for buffer in UnsafeMutableAudioBufferListPointer(pcm.mutableAudioBufferList) {
+            memset(buffer.mData, 0, Int(buffer.mDataByteSize))
+        }
         let converter = try PCMBufferConverter(format: format.streamDescription.pointee)
         return try (0..<count).map { _ in try XCTUnwrap(converter.convert(pcm.audioBufferList)) }
     }

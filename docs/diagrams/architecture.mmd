@@ -10,11 +10,11 @@ flowchart LR
 
         Session["CaptionSession · MainActor<br/>Lifecycle · cancellation · final results<br/>Queue · context · in-memory history"]
         Settings["AppSettings<br/>Appearance + backend preferences"]
-        Core["CaptionCore · local Foundation package<br/>Caption · TranslationInput · SessionState<br/>FinalTranscriptGate · BoundedQueue<br/>TranslationPrompt · LocalEndpoint"]
+        Core["CaptionCore · local Foundation package<br/>Caption · TranslationInput · SessionState<br/>FinalTranscriptGate · SpeechPauseDetector<br/>BoundedQueue · TranslationPrompt · LocalEndpoint"]
 
         subgraph Providers["Application ports → current infrastructure adapters"]
             Capture["SystemAudioCapturing<br/>↓ CoreAudioTapCapture<br/>System audio only · dedicated queue"]
-            Speech["SpeechRecognizing<br/>↓ AppleSpeechRecognizer<br/>On-device Mandarin · final callbacks"]
+            Speech["SpeechRecognizing<br/>↓ AppleSpeechRecognizer<br/>PCM quiet detection · native finals"]
             Translation["TranslationEngine<br/>↓ OllamaTranslationEngine<br/>TranslateGemma request / response"]
         end
 
@@ -39,6 +39,7 @@ flowchart LR
     Translation -->|"prompt / endpoint policy"| Core
     Capture -->|"native API"| CoreAudio
     Speech -->|"on-device API"| SpeechKit
+    Speech -->|"pause policy"| Core
     Translation <-->|"loopback HTTP"| Ollama
     Settings -->|"stores preferences"| Defaults
     Translation -. "replace adapter (planned)" .-> Embedded

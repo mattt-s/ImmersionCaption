@@ -2,7 +2,7 @@ import Foundation
 
 enum SpeechError: LocalizedError {
     case permissionDenied, localModelUnavailable, finalizationTimedOut
-    case finalizationBufferOverflow, invalidAudioTiming
+    case finalizationBufferOverflow, invalidAudioTiming, unsupportedAudioFormat
 
     var errorDescription: String? {
         switch self {
@@ -16,6 +16,8 @@ enum SpeechError: LocalizedError {
             return "Speech recognition took too long to finalize and the audio buffer filled. Restart translation."
         case .invalidAudioTiming:
             return "System audio has invalid timing. Restart translation after checking your audio output device."
+        case .unsupportedAudioFormat:
+            return "The system audio format could not be measured safely. Try a different audio output device, then restart translation."
         }
     }
 }

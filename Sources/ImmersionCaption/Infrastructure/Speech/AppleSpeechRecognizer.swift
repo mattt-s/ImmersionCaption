@@ -5,10 +5,13 @@ import CoreMedia
 /// Uses Apple's installed Mandarin model and explicitly requires all recognition to stay on-device.
 @MainActor
 final class AppleSpeechRecognizer: SpeechRecognizing {
+    /// Scalar diagnostic only; never stores or logs recognized content.
+    private(set) var pauseFinalizationCount = 0
     private let recognizer = SFSpeechRecognizer(locale: Locale(identifier: "zh-CN"))
     private let sink = SpeechAudioSink()
     private var recognitionTask: SFSpeechRecognitionTask?
     private var rotation: Task<Void, Never>?
+    private var pauseMonitor: Task<Void, Never>?
     private var finalizationTimeout: Task<Void, Never>?
     private var isFinishing = false
     private var sessionID = UUID()
@@ -32,6 +35,7 @@ final class AppleSpeechRecognizer: SpeechRecognizing {
     func start(onTranscript: @escaping @MainActor (TranscriptEvent) -> Void,
                onFailure: @escaping @MainActor (Error) -> Void) async throws {
         stop()
+        pauseFinalizationCount = 0
         let token = sessionID
         let status = await withCheckedContinuation { continuation in
             SFSpeechRecognizer.requestAuthorization { continuation.resume(returning: $0) }
@@ -50,6 +54,7 @@ final class AppleSpeechRecognizer: SpeechRecognizing {
         sessionID = UUID()
         requestID = UUID()
         rotation?.cancel(); rotation = nil
+        pauseMonitor?.cancel(); pauseMonitor = nil
         finalizationTimeout?.cancel(); finalizationTimeout = nil
         isFinishing = false
         sink.stop()
@@ -61,6 +66,7 @@ final class AppleSpeechRecognizer: SpeechRecognizing {
     private func beginRequest() {
         guard let recognizer, onTranscript != nil else { return }
         rotation?.cancel()
+        pauseMonitor?.cancel()
         requestID = UUID()
         finalizationTimeout?.cancel(); finalizationTimeout = nil
         isFinishing = false
@@ -71,7 +77,7 @@ final class AppleSpeechRecognizer: SpeechRecognizing {
         request.shouldReportPartialResults = true
         request.addsPunctuation = true
         request.taskHint = .dictation
-        sink.start(request, sessionID: sessionID)
+        sink.start(request, sessionID: sessionID, requestID: requestToken)
         recognitionTask = recognizer.recognitionTask(with: request) { [weak self] result, error in
             // Apple may deliver callbacks off-main. Only value data crosses into session state.
             let text = result?.bestTranscription.formattedString
@@ -79,6 +85,9 @@ final class AppleSpeechRecognizer: SpeechRecognizing {
             Task { @MainActor in
                 guard let self, self.sessionID == sessionToken, self.requestID == requestToken else { return }
                 if let text {
+                    if !final, !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                        self.sink.confirmSpeech(sessionID: sessionToken, requestID: requestToken)
+                    }
                     self.onTranscript?(TranscriptEvent(utteranceID: requestToken, text: text, isFinal: final))
                 }
                 if final {
@@ -88,6 +97,20 @@ final class AppleSpeechRecognizer: SpeechRecognizing {
                     self.beginRequest()
                 } else if let error {
                     self.fail(error)
+                }
+            }
+        }
+        // Poll bounded scalar state instead of creating a MainActor task for every
+        // audio buffer. The sink closes input atomically with capture delivery.
+        pauseMonitor = Task { [weak self] in
+            while !Task.isCancelled {
+                do { try await Task.sleep(nanoseconds: 100_000_000) } catch { return }
+                guard let self, self.sessionID == sessionToken, self.requestID == requestToken,
+                      !self.isFinishing else { return }
+                if self.sink.endIfPaused(sessionID: sessionToken, requestID: requestToken) {
+                    self.pauseFinalizationCount += 1
+                    self.finishRequest()
+                    return
                 }
             }
         }
@@ -103,6 +126,8 @@ final class AppleSpeechRecognizer: SpeechRecognizing {
     private func finishRequest() {
         guard !isFinishing, recognitionTask != nil else { return }
         isFinishing = true
+        rotation?.cancel(); rotation = nil
+        pauseMonitor?.cancel(); pauseMonitor = nil
         sink.beginFinalization()
         recognitionTask?.finish()
         let sessionToken = sessionID
