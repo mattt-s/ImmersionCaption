@@ -22,11 +22,11 @@ final class AppSettings: ObservableObject {
 
     init(languages: [RecognitionLanguage], defaults: UserDefaults = .standard) {
         self.defaults = defaults
-        self.languages = languages
+        let availableLanguages = languages.filter(\.supportsOnDeviceRecognition)
+        self.languages = availableLanguages
         let stored = defaults.string(forKey: "languageIdentifier") ?? "zh-CN"
-        languageIdentifier = RecognitionLanguage.matching(stored, in: languages)?.id
-            ?? languages.first(where: { $0.supportsOnDeviceRecognition })?.id
-            ?? languages.first?.id ?? ""
+        languageIdentifier = RecognitionLanguage.matching(stored, in: availableLanguages)?.id
+            ?? availableLanguages.first?.id ?? ""
         clickThrough = defaults.object(forKey: "clickThrough") as? Bool ?? false
         keepOnscreen = defaults.bool(forKey: "keepOnscreen")
         // Retire settings from the removed backend and second subtitle line.

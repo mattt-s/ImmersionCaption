@@ -1,6 +1,6 @@
 # Current live-caption policy
 
-Updated 2026-11-04 (Asia/Tokyo) for **0.6.0**. This policy supersedes the punctuation-based 0.5.0 implementation. See [research before implementation](LIVE_CAPTIONS_RESEARCH.md) for the macOS Live Captions reference and its limits.
+Updated 2026-11-04 (Asia/Tokyo) for **0.6.1**. This policy supersedes the punctuation-based 0.5.0 implementation. See [research before implementation](LIVE_CAPTIONS_RESEARCH.md) for the macOS Live Captions reference and its limits.
 
 ![Live caption update policy](diagrams/caption-policy.svg)
 
@@ -8,7 +8,7 @@ Updated 2026-11-04 (Asia/Tokyo) for **0.6.0**. This policy supersedes the punctu
 
 ## Spoken-language selection
 
-The user selects a locale reported by Apple Speech through the main window, settings, or menu bar. Options without on-device capability are disabled. Selection persists in UserDefaults, with hyphen/underscore normalization. A missing saved locale falls back to an available on-device option; an empty catalog remains explicitly empty.
+The user selects a locale reported by Apple Speech through the main window, settings, or menu bar. Options without on-device capability are omitted from every menu. A saved selection that is now hidden falls back to the first visible option; when no on-device options exist, the menu is empty and disabled. Selection persists in UserDefaults, with hyphen/underscore normalization. A missing saved locale falls back to an available on-device option; an empty catalog remains explicitly empty.
 
 Pause or stop before changing the selection. CaptionSession snapshots it at start/resume and passes it to SpeechRecognizing. AppleSpeechRecognizer checks recognizer creation, current availability, and on-device support after authorization. Empty selection fails before authorization. Each native request requires local recognition; no cloud or automatic language-detection fallback exists.
 

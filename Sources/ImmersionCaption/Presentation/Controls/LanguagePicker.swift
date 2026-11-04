@@ -9,12 +9,11 @@ struct LanguagePicker: View {
     var body: some View {
         Picker("Spoken language", selection: $settings.languageIdentifier) {
             if settings.languages.isEmpty {
-                Text("No speech languages available").tag("")
+                Text("No on-device languages available").tag("")
             }
             ForEach(settings.languages) { language in
-                Text(language.name + (language.supportsOnDeviceRecognition ? "" : " — unavailable on device"))
+                Text(language.name)
                     .tag(language.id)
-                    .disabled(!language.supportsOnDeviceRecognition)
             }
         }
         .pickerStyle(.menu)

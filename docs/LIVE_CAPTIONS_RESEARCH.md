@@ -15,12 +15,12 @@ Apple's user guide describes visible behavior, not the internal recognition engi
 
 Our implementation interprets a real-time rolling transcript as immediate partial display, replacement of revisions in place, and natural wrapping/scrolling. This is an application design decision, supported by the existing recognizer's cumulative partial-result contract. It does not require finality or sentence boundaries before display.
 
-## Implemented choices in 0.6.0
+## Implemented choices in 0.6.x
 
 | Concern | Choice |
 | --- | --- |
 | Spoken language | Native menu in the main window, settings, and menu bar; options are discovered from Apple Speech. |
-| Offline availability | Unsupported on-device options are disabled; capability/availability is checked again on start. Missing assets require macOS Dictation setup and app reopening. |
+| Offline availability | Options without on-device support are hidden (updated in 0.6.1); capability/availability is checked again on start. Missing assets require macOS Dictation setup and app reopening. |
 | Language transition | Pause or stop first, select a language, then resume/start. Capture and recognition share the normal lifecycle cleanup path. |
 | Partial results | Show the latest text immediately; earlier words can be replaced or deleted. |
 | Repeated callbacks | Replace the same request entry; unchanged callbacks do not create entries or reset idle display time. |

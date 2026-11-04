@@ -18,6 +18,7 @@ final class AppSettingsTests: XCTestCase {
         defaults.set(36.0, forKey: "fontSize")
         defaults.set("en_US", forKey: "languageIdentifier")
         let settings = AppSettings(languages: languages, defaults: defaults)
+        XCTAssertEqual(settings.languages.map(\.id), ["en-US", "zh-CN"])
         XCTAssertEqual(settings.languageIdentifier, "en-US")
         XCTAssertEqual(settings.fontSize, 36)
         XCTAssertNil(defaults.object(forKey: "model"))
@@ -36,14 +37,20 @@ final class AppSettingsTests: XCTestCase {
         let suite = "ImmersionCaptionTests.\(UUID().uuidString)"
         let defaults = try XCTUnwrap(UserDefaults(suiteName: suite))
         defer { defaults.removePersistentDomain(forName: suite) }
-        defaults.set("unsupported", forKey: "languageIdentifier")
-        XCTAssertEqual(AppSettings(languages: languages, defaults: defaults).languageIdentifier, "en-US")
+        for saved in ["unsupported", "ja-JP"] {
+            defaults.set(saved, forKey: "languageIdentifier")
+            XCTAssertEqual(AppSettings(languages: languages, defaults: defaults).languageIdentifier, "en-US")
+        }
     }
 
     func testEmptyCatalogIsRepresentedWithoutInventingLanguageSupport() throws {
         let suite = "ImmersionCaptionTests.\(UUID().uuidString)"
         let defaults = try XCTUnwrap(UserDefaults(suiteName: suite))
         defer { defaults.removePersistentDomain(forName: suite) }
-        XCTAssertEqual(AppSettings(languages: [], defaults: defaults).languageIdentifier, "")
+        for catalog in [[], [languages[2]]] {
+            let settings = AppSettings(languages: catalog, defaults: defaults)
+            XCTAssertTrue(settings.languages.isEmpty)
+            XCTAssertEqual(settings.languageIdentifier, "")
+        }
     }
 }

@@ -4,7 +4,7 @@
 
 - Build multilingual native macOS captions for system/application audio. User chooses the spoken language. Translation is removed; do not reintroduce it without an explicit request.
 - Capture output using Core Audio process taps and NSAudioCaptureUsageDescription. No ScreenCaptureKit, screen recording requests, or microphone input. Keep tap/aggregate private, playback unmuted, and default devices unchanged.
-- Require on-device recognition, with no silent cloud fallback. Discover locales/capabilities and recheck selected-language availability on start. Never log audio/transcripts. History is memory-only until explicit export.
+- Require on-device recognition, with no silent cloud fallback. Discover locales/capabilities, show only on-device options in language menus, resolve saved selection within that filtered list, and recheck availability on start. Never log audio/transcripts. History is memory-only until explicit export.
 
 ## Architecture and policy
 

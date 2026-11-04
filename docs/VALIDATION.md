@@ -1,5 +1,11 @@
 # Validation record
 
+## 0.6.1: filter language menus — 2026-11-04 (Asia/Tokyo)
+
+All shared language menus now omit locales that do not advertise on-device support. Saved selections are resolved against the filtered catalog, including fallback when a previously selected locale becomes unavailable. An all-unavailable catalog produces the same explicit empty state as an empty catalog. Existing settings tests now cover these cases. Caption display and recognition behavior are unchanged.
+
+**Verified:** 25 app tests and 8 domain tests passed (33 total, zero failures), including filtered catalog contents, fallback from a saved unavailable locale, and an all-unavailable catalog. Release build and ad-hoc signature verification passed for 0.6.1, build 8. Runtime caption policy and diagram topology are unchanged; diagrams were not regenerated for this menu-only update.
+
 ## 0.6.0: languages and rolling captions — 2026-11-04 (Asia/Tokyo)
 
 Researched Apple's public Live Captions behavior and speech locale APIs before changing display policy; [sources and design decisions](LIVE_CAPTIONS_RESEARCH.md). Added native spoken-language menus, selected-locale recognition, immediate partial replacement, bounded rolling text, Follow live, optional click-through, and Keep Onscreen. Removed the punctuation/timing cursor policies and obsolete segmentation tests.

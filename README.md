@@ -4,7 +4,7 @@
 
 A native macOS app displaying live captions for application audio in a user-selected spoken language. Capture and recognition run locally. No microphone, translation service, or Ollama installation is required.
 
-**Version 0.6.0: selectable languages and rolling live text.** Partial results appear immediately and corrections replace the current text in place. Punctuation and final results no longer gate display. The [research note](docs/LIVE_CAPTIONS_RESEARCH.md) explains the macOS Live Captions reference and the limits of that comparison.
+**Version 0.6.1: selectable languages and rolling live text.** Partial results appear immediately and corrections replace the current text in place. Punctuation and final results no longer gate display. The [research note](docs/LIVE_CAPTIONS_RESEARCH.md) explains the macOS Live Captions reference and the limits of that comparison.
 
 ## Features
 
@@ -21,7 +21,7 @@ A native macOS app displaying live captions for application audio in a user-sele
 - Xcode 15.2+ with Swift 5.9+ for building. CaptionCore also supports the original Swift 5.3 compatibility checks.
 - No third-party source-package dependencies or external inference services.
 
-Language options are discovered at startup. Options that do not advertise on-device support are disabled. Install missing language data in macOS Keyboard → Dictation settings and reopen the app. Start rechecks recognition availability; the app fails explicitly instead of using a network recognizer.
+Language options are discovered at startup. Only options advertising on-device support are shown. A saved unavailable language falls back to a visible option; if none qualify, the menu shows an empty-state message. Install missing language data in macOS Keyboard → Dictation settings and reopen the app. Start rechecks recognition availability; the app fails explicitly instead of using a network recognizer.
 
 ## Build and install
 

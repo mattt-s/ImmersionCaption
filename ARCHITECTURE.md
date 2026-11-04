@@ -1,6 +1,6 @@
 # Architecture
 
-ImmersionCaption 0.6.0 uses native presentation, a MainActor caption coordinator, a Foundation-only domain package, and replaceable system-audio/speech adapters. Runtime minimum: macOS 14.2. Translation and external inference services are absent.
+ImmersionCaption 0.6.1 uses native presentation, a MainActor caption coordinator, a Foundation-only domain package, and replaceable system-audio/speech adapters. Runtime minimum: macOS 14.2. Translation and external inference services are absent.
 
 ![Current live-caption architecture](docs/diagrams/architecture.svg)
 
@@ -14,7 +14,7 @@ ImmersionCaption 0.6.0 uses native presentation, a MainActor caption coordinator
 - **CaptionSession:** Snapshots the selected language at start; coordinates permissions, capture, and recognition. Each changed event updates 300-block history and an independent three-block display. Generations reject stale callbacks and expiry. There is no punctuation, stability, or finality display gate.
 - **Infrastructure/Speech:** AppleSpeechRecognizer discovers supported locales and capability hints. At start it constructs the selected recognizer, checks availability/on-device support, and requires on-device recognition. Actual final results and the legacy maintenance timer start new requests. Callback values cross to MainActor; obsolete request IDs are rejected.
 - **Infrastructure/Audio:** CoreAudioTapCapture owns the private global process tap and tap-only aggregate. Dedicated control/sample queues manage HAL resources and owning PCM copies. Stop suppresses queued delivery/errors and cleans up partial startup.
-- **Persistence:** AppSettings stores appearance, chosen language, click-through, and Keep Onscreen; preview is transient. Retired backend keys are removed. History is not automatically persisted.
+- **Persistence:** AppSettings filters the catalog to on-device languages, resolves saved selection within that list, and stores appearance, chosen language, click-through, and Keep Onscreen; preview is transient. Retired backend keys are removed. History is not automatically persisted.
 - **Presentation:** Shared native language menus disable changes while running/transitioning. SubtitleView wraps text at fixed chosen size, scrolls to new content when Follow live is enabled, and supports review when disabled. The nonactivating panel optionally ignores mouse events. History rows are revised in place and exported explicitly.
 - **AppContainer:** Discovers the language catalog, injects a selected-language closure, selects adapters, and defers overlay hosting-view creation until view startup.
 
