@@ -38,6 +38,18 @@ open build/ImmersionCaption.app
 
 构建脚本会生成图标，并在 build/ImmersionCaption.app 创建使用临时签名（ad-hoc）的开发版应用。将其复制到「应用程序」即可在本机安装。请退出旧版本，使用同一份应用处理权限授权。测试权限时应启动打包后的应用，而不是使用 swift run。
 
+## 安装包
+
+运行 `scripts/package-app.sh`，脚本会重新构建应用，并在 build/ 中生成原生安装包：
+
+- **ImmersionCaption-0.7.1-arm64.pkg**：双击后通过 macOS 安装器安装到 /Applications/ImmersionCaption.app，可能需要管理员授权。安装前请退出旧版本。安装目标固定，不会搜索并替换其他目录中的开发副本。
+- **ImmersionCaption-0.7.1-arm64.dmg**：打开磁盘映像，将应用拖入 Applications，再启动安装后的副本。映像内附中英文安装说明。
+- **ImmersionCaption-0.7.1-arm64.sha256**：两个安装包的 SHA-256 校验值。在项目根目录运行 `(cd build && shasum -a 256 -c ImmersionCaption-0.7.1-arm64.sha256)` 可进行校验；若已进入 build/，执行 `shasum -a 256 -c ImmersionCaption-0.7.1-arm64.sha256`。
+
+文件名会随应用版本及实际二进制架构变化。当前 arm64 安装包需要 Apple 芯片 Mac 和 macOS 14.2 或更高版本。安装器会检查应用的系统及架构要求，只安装应用本体，不包含安装脚本。偏好、历史及 AI 语言资源不会打入安装包；仍需提前准备由 macOS 管理的本地语言资源。
+
+当前安装包用于开发测试：默认采用 ad-hoc 应用签名，.pkg 未签名，两个安装包均未经公证。面向分发的 Developer ID 签名和公证仍在计划中。若已有证书，可分别通过 CODE_SIGN_IDENTITY 和 INSTALLER_SIGN_IDENTITY 配置应用及安装器签名；公证仍需单独完成。打包脚本不会自动安装或启动应用。
+
 ## 使用方法
 
 应用中的控件名称目前为英文，以下保留原名称并附上中文说明。

@@ -1,5 +1,18 @@
 # Validation record
 
+## 0.7.1 packaging follow-up — 2026-11-05 (Asia/Tokyo)
+
+Added scripts/package-app.sh for native .pkg and .dmg creation, with version/architecture-derived names and SHA-256 checksums. Both READMEs document installation and development-signing limits. Application version/build and runtime code remain 0.7.1/build 11.
+
+**Verified:**
+
+- The release app rebuilt and passed ad-hoc signature verification. The package and disk image were produced for arm64; each is approximately 1.8 MB. No Developer ID signing identities are available, so the installer is unsigned and neither output is notarized.
+- Expanded the .pkg without installing it. The distribution requires arm64 and macOS 14.2+, and its sole payload is Applications/ImmersionCaption.app at the root install location. Relocation is explicitly disabled, version checking/strict bundle identity are enabled, and no installation scripts are present. The extracted app's signature verifies and its files match the release app.
+- Mounted the .dmg read-only without opening Finder. Its app also matches the release app and passes signature verification; the Applications symlink and bilingual INSTALL.txt are present. Detached the temporary mount after inspection. hdiutil image verification and both SHA-256 checks passed.
+- Shell syntax, local documentation links/images, and Git whitespace checks passed. The packaging script accommodates both omitted and explicit pkgbuild relocation defaults and the system Bash 3.2 behavior. Current hdiutil tools emit deprecation notices but successfully create, verify, mount, and detach the image; the commands retain compatibility with earlier supported build hosts.
+
+No installation into /Applications, Installer UI acceptance, or Gatekeeper/notarization approval was performed. App regression tests were not rerun for packaging-only changes; the 53-test 0.7.1 runtime record below remains the latest runtime evidence. Installer signing/notarization and actual target-machine installation remain separate validation steps. Existing runtime diagrams require no topology change for this packaging script.
+
 ## 0.7.1: maximum visible caption lines — 2026-11-04 (Asia/Tokyo)
 
 Added Settings → Maximum caption lines: One, Two, or Three, defaulting to Three. The saved choice resizes the caption viewport and panel immediately. The three-request rolling buffer and 300-block history remain unchanged. CaptionTextView uses native TextKit wrapping with shared CaptionTextMetrics for uniform line fragments and whole-line viewport sizing; following shows the newest lines while manual review keeps full buffered text available.

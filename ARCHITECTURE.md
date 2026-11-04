@@ -90,6 +90,12 @@ stateDiagram-v2
     end note
 ```
 
+## Packaging
+
+scripts/package-app.sh invokes the release app build, then creates two local installation formats using macOS tools. pkgbuild archives only Applications/ImmersionCaption.app with a nonrelocatable, version-checked bundle component and recommended ownership. productbuild wraps it in a native Installer distribution using the actual Mach-O architecture and bundle minimum macOS version. No pre/post-install scripts or external inference runtimes are included. Optional INSTALLER_SIGN_IDENTITY supplies a certificate for product signing; app signing continues through CODE_SIGN_IDENTITY.
+
+hdiutil creates a compressed read-only disk image containing the same app, an Applications symlink, and bilingual installation notes. Both output names include bundle version and architecture; a SHA-256 file accompanies them. Temporary staging preserves previous artifacts until creation succeeds. Build outputs stay under the ignored build/ directory. Creating packages does not install, request runtime permissions, or launch audio capture. Developer ID signing and notarization are not completed by the default development workflow.
+
 ## Engine replacement and limitations
 
 Implement SpeechRecognizing with local-only audio conversion/inference and cumulative request snapshots. Select the adapter in AppContainer. A delta/range-based engine needs an adapter or an explicit event-contract change. The current public SFSpeechRecognizer is not claimed to be the built-in Live Captions engine.

@@ -38,6 +38,18 @@ open build/ImmersionCaption.app
 
 The build generates the icon and an ad-hoc signed development bundle at build/ImmersionCaption.app. Copy it into Applications to install locally. Quit older copies and use one bundle for permissions. Launch the packaged app for permission testing rather than swift run.
 
+## Installation packages
+
+Run `scripts/package-app.sh` to rebuild the app and create native installers in build/:
+
+- **ImmersionCaption-0.7.1-arm64.pkg:** double-click to install into /Applications/ImmersionCaption.app using macOS Installer. Administrator authorization may be required. Quit older copies before installation. The package stays at this fixed destination instead of locating and replacing development copies elsewhere.
+- **ImmersionCaption-0.7.1-arm64.dmg:** open the disk image, drag the app onto Applications, then launch the installed copy. The image includes English/Chinese installation notes.
+- **ImmersionCaption-0.7.1-arm64.sha256:** SHA-256 checksums for both files. From the repository root, verify with `(cd build && shasum -a 256 -c ImmersionCaption-0.7.1-arm64.sha256)`. While inside build/, use `shasum -a 256 -c ImmersionCaption-0.7.1-arm64.sha256`.
+
+Names reflect the app version and actual binary architecture. The current arm64 artifacts require Apple Silicon and macOS 14.2+. The installer checks the app's OS/architecture requirements and contains only the app, with no installation scripts. Preferences, history, and AI language assets are not bundled; system-managed language resources remain a prerequisite.
+
+These are development packages: the app is ad-hoc signed by default, the .pkg is unsigned, and neither artifact is notarized. Developer ID distribution signing and notarization remain planned. If certificates are available, CODE_SIGN_IDENTITY configures app signing and INSTALLER_SIGN_IDENTITY configures installer signing; notarization is a separate step. Packaging does not install or launch the app automatically.
+
 ## Usage
 
 1. Choose **Spoken language**, matching the audio you intend to play, then **Start captions**.
