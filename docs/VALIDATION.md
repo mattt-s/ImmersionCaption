@@ -1,5 +1,13 @@
 # Validation record
 
+## 0.7.1 GitHub Release — 2026-11-05 (Asia/Tokyo)
+
+Published [ImmersionCaption v0.7.1](https://github.com/mattt-s/ImmersionCaption/releases/tag/v0.7.1) with the verified arm64 PKG, DMG, and SHA-256 file. The release tag points to b58ce7930e7e1391e55b8953a2747996ee8f58eb, which includes the packaging script; application version/build remain 0.7.1/build 11. Both READMEs link to the release and its individual assets.
+
+Before publication, a draft was checked for the exact target commit and three expected asset names. Each asset's uploaded state, byte size, and GitHub-reported SHA-256 digest matched the local file. After publication, release metadata confirmed the release is published and latest; all three attachments were downloaded again and compared byte-for-byte with the originals, and the downloaded checksum file verified both installers. The remote tag was checked against the packaging commit.
+
+Release notes are bilingual and identify Apple Silicon/macOS 14.2+ requirements, local language resources, installation steps, implemented features, and known limitations. They explicitly state that the app is ad-hoc signed, the PKG is unsigned, and the packages are not notarized. Release publication does not add distribution signing or prove actual target-machine installation.
+
 ## 0.7.1 packaging follow-up — 2026-11-05 (Asia/Tokyo)
 
 Added scripts/package-app.sh for native .pkg and .dmg creation, with version/architecture-derived names and SHA-256 checksums. Both READMEs document installation and development-signing limits. Application version/build and runtime code remain 0.7.1/build 11.

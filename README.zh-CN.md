@@ -27,6 +27,8 @@ ImmersionCaption 是一款原生 macOS 实时字幕应用，可识别其他应�
 
 ## 构建与安装
 
+可直接从 [GitHub Releases](https://github.com/mattt-s/ImmersionCaption/releases/tag/v0.7.1) 下载适用于 **Apple 芯片 Mac / macOS 14.2+** 的安装包，无需自行编译。DMG 支持拖入「应用程序」安装，PKG 使用 macOS 安装器；两者均为未完成 Developer ID 签名及公证的开发版。以下为源码构建步骤。
+
 完成 Xcode 的首次启动配置，并选择其命令行工具。在项目根目录执行：
 
 ```sh
@@ -42,9 +44,9 @@ open build/ImmersionCaption.app
 
 运行 `scripts/package-app.sh`，脚本会重新构建应用，并在 build/ 中生成原生安装包：
 
-- **ImmersionCaption-0.7.1-arm64.pkg**：双击后通过 macOS 安装器安装到 /Applications/ImmersionCaption.app，可能需要管理员授权。安装前请退出旧版本。安装目标固定，不会搜索并替换其他目录中的开发副本。
-- **ImmersionCaption-0.7.1-arm64.dmg**：打开磁盘映像，将应用拖入 Applications，再启动安装后的副本。映像内附中英文安装说明。
-- **ImmersionCaption-0.7.1-arm64.sha256**：两个安装包的 SHA-256 校验值。在项目根目录运行 `(cd build && shasum -a 256 -c ImmersionCaption-0.7.1-arm64.sha256)` 可进行校验；若已进入 build/，执行 `shasum -a 256 -c ImmersionCaption-0.7.1-arm64.sha256`。
+- **[ImmersionCaption-0.7.1-arm64.pkg](https://github.com/mattt-s/ImmersionCaption/releases/download/v0.7.1/ImmersionCaption-0.7.1-arm64.pkg)**：双击后通过 macOS 安装器安装到 /Applications/ImmersionCaption.app，可能需要管理员授权。安装前请退出旧版本。安装目标固定，不会搜索并替换其他目录中的开发副本。
+- **[ImmersionCaption-0.7.1-arm64.dmg](https://github.com/mattt-s/ImmersionCaption/releases/download/v0.7.1/ImmersionCaption-0.7.1-arm64.dmg)**：打开磁盘映像，将应用拖入 Applications，再启动安装后的副本。映像内附中英文安装说明。
+- **[ImmersionCaption-0.7.1-arm64.sha256](https://github.com/mattt-s/ImmersionCaption/releases/download/v0.7.1/ImmersionCaption-0.7.1-arm64.sha256)**：两个安装包的 SHA-256 校验值。在项目根目录运行 `(cd build && shasum -a 256 -c ImmersionCaption-0.7.1-arm64.sha256)` 可进行校验；若已进入 build/，执行 `shasum -a 256 -c ImmersionCaption-0.7.1-arm64.sha256`。
 
 文件名会随应用版本及实际二进制架构变化。当前 arm64 安装包需要 Apple 芯片 Mac 和 macOS 14.2 或更高版本。安装器会检查应用的系统及架构要求，只安装应用本体，不包含安装脚本。偏好、历史及 AI 语言资源不会打入安装包；仍需提前准备由 macOS 管理的本地语言资源。
 
