@@ -21,4 +21,4 @@ if (( sdk_major < 14 || (sdk_major == 14 && ${sdk_minor:-0} < 2) )); then
     echo "A macOS 14.2+ SDK with Core Audio process taps is required." >&2
     exit 1
 fi
-echo "Build prerequisites are available. Runtime permissions and Mandarin assets are checked on Start."
+echo "Build prerequisites are available. Runtime permissions and selected-language assets are checked on Start."

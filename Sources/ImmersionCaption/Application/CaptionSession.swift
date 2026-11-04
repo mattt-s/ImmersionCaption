@@ -10,23 +10,26 @@ final class CaptionSession: ObservableObject {
     @Published private(set) var currentCaption: Caption?
     @Published private(set) var history: [Caption] = []
     @Published private(set) var errorMessage: String?
-    @Published private(set) var sourceDraft = ""
+    @Published private(set) var displayCaptions: [Caption] = []
     @Published private(set) var isTransitioning = false
 
     private let capture: SystemAudioCapturing
     private let speech: SpeechRecognizing
     private let logger = Logger(subsystem: "app.ImmersionCaption", category: "Session")
     private var generation = UUID()
-    private var segmenter = TranscriptSegmenter()
-    private var utteranceID: UUID?
+    private let selectedLanguage: () -> String
+    private var activeLanguage = ""
+    private var transcript = LiveTranscript()
+    private var displayTranscript = LiveTranscript(capacity: 3)
     private var expiration: Task<Void, Never>?
     private var transitions = 0 {
         didSet { isTransitioning = transitions > 0 }
     }
 
-    init(capture: SystemAudioCapturing, speech: SpeechRecognizing) {
+    init(capture: SystemAudioCapturing, speech: SpeechRecognizing, selectedLanguage: @escaping () -> String) {
         self.capture = capture
         self.speech = speech
+        self.selectedLanguage = selectedLanguage
     }
 
     /// Startup is serialized with teardown so a late permission response cannot revive a stopped session.
@@ -38,8 +41,9 @@ final class CaptionSession: ObservableObject {
         let token = generation
         state = .starting
         errorMessage = nil
+        activeLanguage = selectedLanguage()
         do {
-            try await speech.start(onTranscript: { [weak self] event in
+            try await speech.start(languageIdentifier: activeLanguage, onTranscript: { [weak self] event in
                 guard let self, self.generation == token else { return }
                 self.receive(event)
             }, onFailure: { [weak self] error in
@@ -61,7 +65,7 @@ final class CaptionSession: ObservableObject {
     func pause() async { await end(as: .paused) }
     func stop() async { await end(as: .stopped) }
 
-    func clearHistory() { history.removeAll() }
+    func clearHistory() { transcript.removeAll(); history.removeAll() }
 
     @discardableResult
     private func end(as nextState: SessionState) async -> UUID {
@@ -88,32 +92,24 @@ final class CaptionSession: ObservableObject {
     private func invalidateWork() {
         generation = UUID()
         expiration?.cancel(); expiration = nil
-        segmenter.reset()
-        utteranceID = nil
-        sourceDraft = ""
+        displayTranscript.removeAll()
+        displayCaptions = []
         currentCaption = nil
     }
 
+    /// Replace the active request snapshot on every partial, including earlier-word
+    /// corrections. No punctuation, stability delay, or final-result gate is applied.
     private func receive(_ event: TranscriptEvent) {
         guard state == .running else { return }
-        if utteranceID != event.utteranceID {
-            segmenter.beginUtterance()
-            utteranceID = event.utteranceID
-        }
-        sourceDraft = event.text
-        let phrases = segmenter.ingest(event.text, isFinal: event.isFinal, segments: event.segments)
-        publish(phrases)
-    }
-
-    /// Publishes committed speech directly; every phrase enters history without a work queue.
-    private func publish(_ phrases: [String]) {
-        guard !phrases.isEmpty else { return }
-        let captions = phrases.map { Caption(text: $0) }
-        history.append(contentsOf: captions)
-        if history.count > 300 { history.removeFirst(history.count - 300) }
-        guard let caption = captions.last else { return }
-        currentCaption = caption
-        scheduleExpiration(caption.id, token: generation)
+        guard transcript.update(requestID: event.utteranceID, text: event.text,
+                                languageIdentifier: activeLanguage, isFinal: event.isFinal) else { return }
+        history = transcript.captions
+        // Retain recent request context for a rolling display, bounded independently of history.
+        displayTranscript.update(requestID: event.utteranceID, text: event.text,
+                                 languageIdentifier: activeLanguage, isFinal: event.isFinal)
+        displayCaptions = displayTranscript.captions
+        currentCaption = displayCaptions.last
+        if let caption = currentCaption { scheduleExpiration(caption.id, token: generation) }
     }
 
     private func scheduleExpiration(_ captionID: UUID, token: UUID) {

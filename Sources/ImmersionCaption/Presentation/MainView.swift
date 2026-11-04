@@ -17,23 +17,27 @@ struct MainView: View {
                     .font(.caption.weight(.semibold)).padding(8)
                     .background(.quaternary, in: Capsule())
             }
-            SessionControls(session: session)
-            Text("Recognizes Mandarin in application audio on your Mac. Your microphone is never used.")
+            HStack {
+                SessionControls(session: session)
+                Spacer()
+                LanguagePicker(settings: settings,
+                    isEnabled: session.state != .running && !session.isTransitioning)
+                    .frame(maxWidth: 320)
+            }
+            Text("Captions application audio in your selected language, on your Mac. Your microphone is never used.")
                 .font(.callout).foregroundStyle(.secondary)
             if let error = session.errorMessage {
                 Text(error).foregroundStyle(.red).font(.callout).textSelection(.enabled)
             }
             TabView {
                 VStack(alignment: .leading, spacing: 16) {
-                    if !session.sourceDraft.isEmpty {
-                        Text("Hearing: \(session.sourceDraft)")
-                            .font(.callout).foregroundStyle(.secondary).lineLimit(3)
-                    }
+                    Text("Captions update as you listen, including corrections to earlier words.")
+                        .font(.callout).foregroundStyle(.secondary)
                     HistoryView(session: session)
                 }
                 .padding(16)
                 .tabItem { Label("Captions", systemImage: "text.bubble") }
-                SettingsView(settings: settings)
+                SettingsView(settings: settings, session: session)
                     .tabItem { Label("Settings", systemImage: "slider.horizontal.3") }
             }
         }

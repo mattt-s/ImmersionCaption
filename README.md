@@ -2,30 +2,30 @@
 
 <img src="Resources/Artwork/AppIcon.png" alt="ImmersionCaption app icon" width="112" height="112">
 
-A native macOS application displaying recognized Mandarin from application audio as floating captions. Capture and recognition run locally; the microphone is never used.
+A native macOS app displaying live captions for application audio in a user-selected spoken language. Capture and recognition run locally. No microphone, translation service, or Ollama installation is required.
 
-**Version 0.5.0: captions only.** Translation, Ollama integration, prompts, the inference queue, bilingual display, and backend preferences have been removed. No Ollama installation or translation models are required. This change does not uninstall external applications or delete their models.
+**Version 0.6.0: selectable languages and rolling live text.** Partial results appear immediately and corrections replace the current text in place. Punctuation and final results no longer gate display. The [research note](docs/LIVE_CAPTIONS_RESEARCH.md) explains the macOS Live Captions reference and the limits of that comparison.
 
 ## Features
 
-- Core Audio process-tap capture of application/system output; no screen capture or microphone input.
-- On-device Mandarin (`zh-CN`) recognition through Apple's installed speech assets, with no cloud fallback.
-- Click-through floating captions across Spaces/fullscreen, font size, opacity, position presets, and preview.
-- Start/pause/resume/stop, menu bar controls, and visible errors.
-- Sentence-first punctuation, request continuation, and revision alignment to reduce replay.
-- Memory-only history of the latest 300 phrases; clear and explicit plain-text export.
+- Core Audio process-tap capture of system/application output; no screen or microphone recording.
+- Spoken-language menu in the main window, settings, and menu bar. Options come from Apple Speech; on-device capability varies by language and Mac.
+- On-device recognition without cloud fallback. Language selection is explicit, not automatic detection.
+- Rolling, naturally wrapped text that supports revisions, scrolling, Follow live, and optional click-through.
+- Font size, background opacity, position presets, preview, and Keep captions onscreen.
+- Start/pause/resume/stop, menu controls, visible errors, and latest-300-block memory-only history with text export.
 
 ## Requirements
 
-- macOS 14.2+ and Apple's installed on-device Mandarin recognition assets. Apple Silicon recommended.
-- Xcode 15.2+ and Swift 5.9+ for building. CaptionCore also supports the original Swift 5.3 compatibility checks.
-- There are no third-party source-package dependencies or inference services to configure.
+- macOS 14.2+ and on-device speech assets for the selected language; Apple Silicon recommended.
+- Xcode 15.2+ with Swift 5.9+ for building. CaptionCore also supports the original Swift 5.3 compatibility checks.
+- No third-party source-package dependencies or external inference services.
 
-Speech assets may need downloading through macOS Dictation settings before offline use. Recognition refuses to start when local Mandarin support is unavailable.
+Language options are discovered at startup. Options that do not advertise on-device support are disabled. Install missing language data in macOS Keyboard → Dictation settings and reopen the app. Start rechecks recognition availability; the app fails explicitly instead of using a network recognizer.
 
 ## Build and install
 
-Complete Xcode setup and select its command-line tools. From the project root:
+Complete Xcode setup and select its command-line tools. From the repository root:
 
 ```sh
 swift test --package-path Packages/CaptionCore
@@ -34,43 +34,42 @@ scripts/build-app.sh
 open build/ImmersionCaption.app
 ```
 
-The build creates an ad-hoc signed development bundle with the native icon at `build/ImmersionCaption.app`. Copy it into Applications to install locally. Quit older copies first and use one copy for privacy permissions. Launch the packaged app for permission testing; `swift run` is not the supported installation path.
+The build generates the icon and an ad-hoc signed development bundle at build/ImmersionCaption.app. Copy it into Applications to install locally. Quit older copies and use one bundle for permissions. Launch the packaged app for permission testing rather than swift run.
 
-## Usage and configuration
+## Usage
 
-1. Open the app and choose **Start captions**.
-2. Allow **Speech Recognition** and **System Audio Recording**. macOS may list the audio-only permission inside Privacy & Security → Screen & System Audio Recording → System Audio Recording Only. Screen recording and microphone access are not needed.
-3. Play Mandarin in another application. Recognized phrases appear directly in the overlay and history. **Hearing** shows the current, revisable hypothesis.
-4. Adjust font size, background opacity, and top/middle/bottom position in Settings. Preview works without recording.
-5. Pause/resume or stop from the window/menu bar. Closing the window leaves menu controls available; **Quit ImmersionCaption** exits.
+1. Choose **Spoken language**, matching the audio you intend to play, then **Start captions**.
+2. Allow Speech Recognition and System Audio Recording. The audio-only permission may appear under Privacy & Security → Screen & System Audio Recording → System Audio Recording Only. Screen and microphone permissions are not needed.
+3. Play audio in another application. Text appears as recognized, including unfinished speech; earlier words may change.
+4. To change language, pause or stop, choose another language, then resume/start. The live window starts fresh; existing history keeps its language labels.
+5. Leave **Follow live** on to track new text. Turn it off to scroll back. Disable **Click-through overlay** for interaction. The default overlay is interactive.
+6. Adjust font, opacity, and position in Settings. Enable **Keep captions onscreen while running** to retain the window during inactivity. Preview works without recording.
 
-Captions disappear 12 seconds after their last committed update. History survives stop/start until cleared or the process exits. Export writes recognized text to a chosen location. Retired backend/bilingual preference keys are removed on settings initialization; appearance is preserved.
+Closing the main window leaves menu controls available; Quit ImmersionCaption exits. By default the caption window hides 12 seconds after the last changed transcript; this is an idle-display heuristic. Pause/stop clears the live display but retains history. Clear affects history, and subsequent updates can add the active block again. Export writes the current text snapshots to a chosen location.
 
-## Caption policy and limitations
+## Display policy and limits
 
-The [policy diagram and walkthrough](docs/CAPTION_POLICY.md) describe exact decisions. An available sentence ending takes priority over commas. Otherwise a real final result commits remaining text, or an eligible comma/colon/semicolon at character position ten or later commits a partial clause. No maximum-length, duration, pause, or unchanged-text cuts are used.
+See the [policy diagram](docs/CAPTION_POLICY.md) and [architecture](ARCHITECTURE.md). Each recognition request owns a revisable block. Partials replace its text instead of appending duplicate sentences. A real final marks the same entry final. The window retains three recent blocks and scrolls at the chosen font size, without arbitrary source cuts or font shrinking. History retains the latest 300 blocks.
 
-Punctuated partials can commit immediately; there is no stability confirmation gate. Timing/text-diff alignment tries to avoid replay and does not repair earlier captions. Unpunctuated speech may wait for a boundary or final result. Requests rotate every 45 seconds, carrying unfinished recognized text without overlapping audio buffering.
+The 45-second legacy request rotation can create audio gaps; audio overlap buffering is not implemented. Separate requests can repeat overlapping speech because no cross-request text deduplication is imposed. The public recognizer's latency/quality and supported locales can differ from built-in Live Captions. Sentence-level history, automatic language detection, semantic endpointing, translation, and direct asset downloading are not implemented.
 
-Every committed phrase enters history directly. When one callback emits multiple phrases, the overlay shows the last; history keeps all subject to its 300-entry limit. Six-line overlay layout may scale down or visually truncate long text. Pagination, dragging, per-app capture selection, automatic language detection, and semantic endpoint detection are not implemented.
-
-Capture uses a private global stereo mix without changing default devices. Protected audio may be unavailable. Output-format changes and unexpected speech errors stop the session visibly. Permission recovery, sustained recognition, and overlay appearance across Spaces require interactive acceptance. This is a development build; distribution signing and notarization are not implemented.
+Capture uses a private global stereo mix without changing default devices. Protected audio may be unavailable. Device-format changes and speech errors stop processing visibly. Resizing/dragging the overlay is not implemented; use position presets. This is an ad-hoc development build; distribution signing and notarization remain planned.
 
 ## Project structure and verification
 
 ```text
-Packages/CaptionCore/                 caption values, segmentation, revision alignment, domain tests
+Packages/CaptionCore/                 caption snapshots, LiveTranscript, lifecycle policy, tests
 Sources/ImmersionCaption/
-  App/                               composition root and lifecycle
-  Application/                       capture/speech ports and caption session
-  Infrastructure/                    Core Audio, Apple Speech, appearance preferences
-  Presentation/                      controls, settings, history, overlay
-Resources/                           artwork, privacy descriptions, entitlements
-Tests/ImmersionCaptionTests/          session, settings, startup, and PCM tests
-scripts/                             environment, build, launch, compatibility checks
-docs/                                policy, diagrams, verification record
+  App/                               composition root and app lifecycle
+  Application/                       capture/speech ports, language values, caption session
+  Infrastructure/                    Core Audio, selected Apple Speech locale, preferences
+  Presentation/                      language menus, controls, settings, history, rolling overlay
+Resources/                           icon, privacy descriptions, entitlements
+Tests/ImmersionCaptionTests/          revisions, languages, lifecycle, settings, PCM, startup
+scripts/                             build, launch, environment, compatibility checks
+docs/                                research, policy, architecture diagrams, validation
 ```
 
-See [ARCHITECTURE.md](ARCHITECTURE.md), [AGENTS.md](AGENTS.md), and [validation evidence](docs/VALIDATION.md). `scripts/test-core-compat.sh` runs Foundation-only production checks. After building, `scripts/check-app-launch.sh` checks process/window metadata and leaves the app open; it does not grant permissions or test live capture.
+Run scripts/test-core-compat.sh for Foundation-only domain checks. scripts/check-app-launch.sh checks process/window metadata after building and leaves the app open; it does not test live audio. See [validation evidence](docs/VALIDATION.md) and [development rules](AGENTS.md).
 
-Audio and history are not automatically saved. Preferences use UserDefaults and history export is explicit. Logs contain lifecycle/error categories rather than audio/transcripts. Offline operation needs already installed Apple speech assets. Direct speech-model management and alternative embedded recognition engines remain planned.
+Audio and history are not automatically saved. Preferences use UserDefaults; export is explicit. Logs contain lifecycle/error categories rather than audio/transcripts. Initial OS asset downloads may need internet; installed local assets are required for offline recognition. Removing the old translation integration does not uninstall external apps or their models.

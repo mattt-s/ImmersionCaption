@@ -18,12 +18,12 @@ struct ImmersionCaptionApp: App {
             CommandGroup(replacing: .newItem) { }
         }
         Settings {
-            SettingsView(settings: container.settings)
+            SettingsView(settings: container.settings, session: container.session)
                 .padding(24)
                 .frame(width: 480)
         }
         MenuBarExtra("ImmersionCaption", systemImage: "captions.bubble") {
-            MenuBarView(session: container.session)
+            MenuBarView(session: container.session, settings: container.settings)
         }
     }
 }

@@ -2,7 +2,7 @@ import AppKit
 import SwiftUI
 import Combine
 
-/// A click-through, nonactivating panel visible on Spaces, including fullscreen applications.
+/// A nonactivating rolling caption panel with optional click-through, visible across Spaces.
 @MainActor
 final class SubtitleOverlayController {
     private let panel: NSPanel
@@ -17,16 +17,19 @@ final class SubtitleOverlayController {
         panel.backgroundColor = .clear
         panel.isOpaque = false
         panel.hasShadow = false
-        panel.ignoresMouseEvents = true
+        panel.ignoresMouseEvents = settings.clickThrough
         panel.hidesOnDeactivate = false
         panel.isReleasedWhenClosed = false
         panel.contentView = NSHostingView(rootView: SubtitleView(session: session, settings: settings))
-        session.$currentCaption.combineLatest(settings.$previewOverlay)
-            .sink { [weak self] caption, preview in
+        session.$currentCaption.combineLatest(session.$state, settings.$previewOverlay, settings.$keepOnscreen)
+            .sink { [weak self] caption, state, preview, keep in
                 guard let self else { return }
-                if caption != nil || preview { self.reposition(); self.panel.orderFrontRegardless() }
+                if caption != nil || preview || (keep && state == .running) { self.reposition(); self.panel.orderFrontRegardless() }
                 else { self.panel.orderOut(nil) }
             }.store(in: &subscriptions)
+        settings.$clickThrough.sink { [weak self] value in
+            self?.panel.ignoresMouseEvents = value
+        }.store(in: &subscriptions)
         settings.$position.sink { [weak self] position in
             self?.reposition(position: position)
         }.store(in: &subscriptions)

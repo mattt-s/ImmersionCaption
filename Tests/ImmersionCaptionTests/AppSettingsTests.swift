@@ -3,26 +3,47 @@ import XCTest
 
 @MainActor
 final class AppSettingsTests: XCTestCase {
-    func testRetiredBackendSettingsAreRemovedAndAppearancePreserved() throws {
+    private let languages = [
+        RecognitionLanguage(id: "en-US", name: "English (US)", supportsOnDeviceRecognition: true),
+        RecognitionLanguage(id: "zh-CN", name: "Chinese", supportsOnDeviceRecognition: true),
+        RecognitionLanguage(id: "ja-JP", name: "Japanese", supportsOnDeviceRecognition: false)
+    ]
+
+    func testLanguageAndAppearancePersistWhileRetiredSettingsAreRemoved() throws {
         let suite = "ImmersionCaptionTests.\(UUID().uuidString)"
         let defaults = try XCTUnwrap(UserDefaults(suiteName: suite))
         defer { defaults.removePersistentDomain(forName: suite) }
-        defaults.set("http://localhost:11434", forKey: "endpoint")
-        defaults.set("old-model", forKey: "model")
+        defaults.set("old", forKey: "model")
         defaults.set(true, forKey: "bilingual")
         defaults.set(36.0, forKey: "fontSize")
-        defaults.set(0.6, forKey: "opacity")
-        defaults.set("top", forKey: "position")
-
-        let settings = AppSettings(defaults: defaults)
-
+        defaults.set("en_US", forKey: "languageIdentifier")
+        let settings = AppSettings(languages: languages, defaults: defaults)
+        XCTAssertEqual(settings.languageIdentifier, "en-US")
         XCTAssertEqual(settings.fontSize, 36)
-        XCTAssertEqual(settings.opacity, 0.6)
-        XCTAssertEqual(settings.position, .top)
-        for key in ["endpoint", "model", "bilingual"] {
-            XCTAssertNil(defaults.object(forKey: key))
-        }
-        settings.position = .middle
-        XCTAssertEqual(defaults.string(forKey: "position"), "middle")
+        XCTAssertNil(defaults.object(forKey: "model"))
+        XCTAssertNil(defaults.object(forKey: "bilingual"))
+        XCTAssertFalse(settings.clickThrough)
+        settings.keepOnscreen = true
+        settings.clickThrough = true
+        settings.languageIdentifier = "zh-CN"
+        let restored = AppSettings(languages: languages, defaults: defaults)
+        XCTAssertEqual(restored.languageIdentifier, "zh-CN")
+        XCTAssertTrue(restored.keepOnscreen)
+        XCTAssertTrue(restored.clickThrough)
+    }
+
+    func testMissingSavedLocaleFallsBackToAnOnDeviceOption() throws {
+        let suite = "ImmersionCaptionTests.\(UUID().uuidString)"
+        let defaults = try XCTUnwrap(UserDefaults(suiteName: suite))
+        defer { defaults.removePersistentDomain(forName: suite) }
+        defaults.set("unsupported", forKey: "languageIdentifier")
+        XCTAssertEqual(AppSettings(languages: languages, defaults: defaults).languageIdentifier, "en-US")
+    }
+
+    func testEmptyCatalogIsRepresentedWithoutInventingLanguageSupport() throws {
+        let suite = "ImmersionCaptionTests.\(UUID().uuidString)"
+        let defaults = try XCTUnwrap(UserDefaults(suiteName: suite))
+        defer { defaults.removePersistentDomain(forName: suite) }
+        XCTAssertEqual(AppSettings(languages: [], defaults: defaults).languageIdentifier, "")
     }
 }

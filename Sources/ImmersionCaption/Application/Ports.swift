@@ -1,6 +1,5 @@
 import CoreMedia
 import Foundation
-import CaptionCore
 
 /// Produces application-output audio only. Implementations own permission and stream cleanup.
 @MainActor
@@ -10,26 +9,18 @@ protocol SystemAudioCapturing: AnyObject {
     func stop() async
 }
 
-/// A cumulative hypothesis within one recognition request. isFinal means actual recognizer
-/// completion; maintenance rotations change the ID without forcing unfinished speech final.
+/// A complete current hypothesis for one request. New callbacks replace its previous
+/// text; only actual recognizer completion marks it final.
 struct TranscriptEvent {
     let utteranceID: UUID
     let text: String
     let isFinal: Bool
-    let segments: [SpeechSegment]
-
-    init(utteranceID: UUID, text: String, isFinal: Bool, segments: [SpeechSegment] = []) {
-        self.utteranceID = utteranceID
-        self.text = text
-        self.isFinal = isFinal
-        self.segments = segments
-    }
 }
 
 /// Accepts captured audio and emits cumulative hypotheses. No cloud fallback is allowed.
 @MainActor
 protocol SpeechRecognizing: AnyObject {
-    func start(onTranscript: @escaping @MainActor (TranscriptEvent) -> Void,
+    func start(languageIdentifier: String, onTranscript: @escaping @MainActor (TranscriptEvent) -> Void,
                onFailure: @escaping @MainActor (Error) -> Void) async throws
     /// This closure must be safe to invoke synchronously from the capture callback queue.
     var audioReceiver: (CMSampleBuffer) -> Void { get }

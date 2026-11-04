@@ -1,38 +1,33 @@
 flowchart TD
-    accTitle: ImmersionCaption 0.5.0 caption publication policy
-    accDescr: Current recognition events are aligned with consumed speech. Sentence punctuation takes priority, then actual finality, then eligible clause punctuation. Recognized text is displayed directly without a stability gate or inference queue.
-    Event["Apple Speech event<br/>Cumulative Mandarin + request ID<br/>Actual finality + timings"]
-    Active{"Current generation/request<br/>and session running?"}
-    Ignore["Ignore stale/inactive event"]
-    Align["On new ID, carry unfinished text<br/>Combine carry + hypothesis<br/>Align consumed position"]
-    Sentence{"Sentence ending anywhere<br/>in remaining suffix?"}
-    Whole["Choose first sentence ending<br/>Keep earlier commas + quotes"]
-    Final{"Actual isFinal = true?"}
-    Tail["Choose entire remaining tail"]
-    Clause{"Comma / colon / semicolon<br/>at position 10 or later?"}
-    Fragment["Choose first eligible clause<br/>Exclude numeric separators"]
-    Wait["Retain unfinished text<br/>Wait for recognition update"]
-    Commit["Advance consumed anchors<br/>Skip punctuation-only output<br/>Repeat for remaining suffix"]
-    Publish["Publish recognized text directly<br/>History: newest 300 phrases<br/>Overlay: last phrase in event"]
-    Expire["Hide overlay after 12 seconds<br/>Keep history until cleared / quit"]
-    Note["No stability confirmation gate<br/>Punctuated partials commit immediately<br/>No correction of old captions"]
-    Event --> Active
-    Active -->|"No"| Ignore
-    Active -->|"Yes"| Align --> Sentence
-    Sentence -->|"Yes"| Whole --> Commit
-    Sentence -->|"No"| Final
-    Final -->|"Yes"| Tail --> Commit
-    Final -->|"No"| Clause
-    Clause -->|"Yes"| Fragment --> Commit
-    Clause -->|"No"| Wait
-    Commit -->|"Next suffix, if any"| Sentence
-    Commit -->|"Collected phrases"| Publish --> Expire
-    Align -.-> Note
+    accTitle: Immediate revisable caption display policy
+    accDescr: Select a locally supported language while paused or stopped. Each partial immediately replaces its request snapshot. Finality updates metadata rather than gating display. Recent text wraps and scrolls; history and display buffers are bounded.
+    Select["Select spoken language<br/>Pause/stop before changing"]
+    Ready{"Recognizer available<br/>and supports on-device?"}
+    Error["Show language setup error<br/>No cloud fallback / no capture"]
+    Start["Start system-audio capture<br/>Require local recognition"]
+    Event["Current request partial or final<br/>Full current text + request ID"]
+    Current{"Current session/request<br/>and running?"}
+    Ignore["Ignore obsolete event"]
+    Update["Replace existing request snapshot<br/>or append a new request block<br/>Empty revision retracts a draft"]
+    Changed{"Text or finality changed?"}
+    Duplicate["No extra row or timer reset"]
+    Publish["Update immediately<br/>History: newest 300 blocks<br/>Display: newest 3 current-run blocks"]
+    Scroll["Wrap at selected font size<br/>Follow live: scroll to newest text<br/>Follow off: manual review"]
+    Idle["12 seconds without changed text:<br/>hide unless Keep Onscreen<br/>Pause/stop clears live display"]
+    Note["No punctuation or isFinal display gate<br/>Revisions keep identity and first-seen time<br/>Finality marks the same entry final"]
+    Select --> Ready
+    Ready -->|"No"| Error
+    Ready -->|"Yes"| Start --> Event --> Current
+    Current -->|"No"| Ignore
+    Current -->|"Yes"| Update --> Changed
+    Changed -->|"No"| Duplicate
+    Changed -->|"Yes"| Publish --> Scroll --> Idle
+    Update -.-> Note
     classDef input fill:#eaf2ff,stroke:#3b67b1,color:#172b4d
     classDef policy fill:#e8f5f1,stroke:#23836d,color:#153e35
     classDef output fill:#f2ecfc,stroke:#815bb3,color:#382254
     classDef warning fill:#fff1df,stroke:#b9822d,color:#513b16
-    class Event,Active,Align input
-    class Sentence,Whole,Final,Tail,Clause,Fragment,Commit policy
-    class Publish,Expire output
-    class Note warning
+    class Select,Ready,Start,Event input
+    class Current,Update,Changed policy
+    class Publish,Scroll,Idle output
+    class Error,Note warning

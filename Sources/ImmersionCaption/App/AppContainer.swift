@@ -8,8 +8,9 @@ final class AppContainer: ObservableObject {
     private(set) var overlay: SubtitleOverlayController?
 
     init() {
-        let settings = AppSettings()
-        let session = CaptionSession(capture: CoreAudioTapCapture(), speech: AppleSpeechRecognizer())
+        let settings = AppSettings(languages: AppleSpeechRecognizer.availableLanguages())
+        let session = CaptionSession(capture: CoreAudioTapCapture(), speech: AppleSpeechRecognizer(),
+                                     selectedLanguage: { settings.languageIdentifier })
         self.settings = settings
         self.session = session
     }

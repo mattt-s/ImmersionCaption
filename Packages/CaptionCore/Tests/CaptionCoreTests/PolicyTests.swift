@@ -9,7 +9,7 @@ final class PolicyTests: XCTestCase {
         XCTAssertEqual(restored, caption)
         XCTAssertEqual(restored.text, "今天先这样。")
         let keys = try XCTUnwrap(JSONSerialization.jsonObject(with: encoded) as? [String: Any])
-        XCTAssertEqual(Set(keys.keys), ["id", "text", "createdAt"])
+        XCTAssertEqual(Set(keys.keys), ["id", "text", "languageIdentifier", "isFinal", "createdAt"])
     }
 
     func testLifecycleStartPolicy() {

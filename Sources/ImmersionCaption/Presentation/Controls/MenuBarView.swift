@@ -3,6 +3,7 @@ import AppKit
 
 struct MenuBarView: View {
     @ObservedObject var session: CaptionSession
+    @ObservedObject var settings: AppSettings
     @Environment(\.openWindow) private var openWindow
 
     var body: some View {
@@ -14,6 +15,8 @@ struct MenuBarView: View {
                 .disabled(!session.state.canStart || session.isTransitioning)
         }
         Button("Stop") { Task { await session.stop() } }
+        LanguagePicker(settings: settings,
+            isEnabled: session.state != .running && !session.isTransitioning)
         Divider()
         Button("Open ImmersionCaption") {
             openWindow(id: "main")

@@ -1,65 +1,61 @@
 # Architecture
 
-ImmersionCaption 0.5.0 is a native Mandarin caption app for macOS 14.2+. It has an MVVM-style presentation layer, an application coordinator, a Foundation-only domain package, and replaceable capture/speech adapters. There is no translation module, HTTP client, inference service, prompt, or translation queue.
+ImmersionCaption 0.6.0 uses native presentation, a MainActor caption coordinator, a Foundation-only domain package, and replaceable system-audio/speech adapters. Runtime minimum: macOS 14.2. Translation and external inference services are absent.
 
-## Components
-
-![Caption-only architecture](docs/diagrams/architecture.svg)
+![Current live-caption architecture](docs/diagrams/architecture.svg)
 
 [SVG](docs/diagrams/architecture.svg) · [PNG](docs/diagrams/architecture.png) · [Editable Mermaid](docs/diagrams/architecture.mmd)
 
-- **CaptionCore:** `Caption` holds recognized `text`, identity, and creation time; `SessionState` defines lifecycle policy. `TranscriptSegmenter`, `TranscriptCursor`, and `SpeechSegment` implement punctuation, request carry, and revision alignment. No UI, networking, or native audio/speech dependency.
-- **Application/Ports.swift:** `SystemAudioCapturing` delivers owning `CMSampleBuffer` values. `SpeechRecognizing` consumes those buffers and emits cumulative `TranscriptEvent` values containing request ID, actual finality, and optional provider-neutral UTF-16 ranges/timings. Adapters handle audio conversion internally.
-- **CaptionSession:** MainActor coordinator for lifecycle, segmentation, direct publication, memory-only history, expiry, and stale-callback rejection. Committed phrases become `Caption(text:)` values synchronously without a backend task or work queue.
-- **Infrastructure/Audio:** `CoreAudioTapCapture` owns a private, unmuted global stereo tap and private tap-only aggregate. HAL setup/cleanup uses a serial control queue. `PCMBufferConverter` copies callback memory. Format changes and conversion failures stop processing visibly.
-- **Infrastructure/Speech:** `AppleSpeechRecognizer` requires on-device `zh-CN`, requests partial results/punctuation, snapshots callbacks, and rotates legacy requests. Its locked sink synchronizes append with replacement/endAudio. Cloud fallback is disabled.
-- **Infrastructure/Persistence:** `AppSettings` stores font size, opacity, and position; preview is transient. Retired backend/bilingual keys are removed on initialization. Audio/history are not automatically persisted.
-- **Presentation:** SwiftUI controls/settings/history observe the session. A click-through AppKit panel hosts recognized text across Spaces/fullscreen. Explicit export writes recognized text only.
-- **AppContainer:** Chooses concrete capture/speech providers and owns presentation. Overlay construction waits for view startup to avoid nested SwiftUI graph initialization.
+## Responsibilities
+
+- **CaptionCore:** Caption identifies one request snapshot with text, language, actual finality, and first-seen time. LiveTranscript replaces partials in place, preserves final entries, retracts empty revisions, and bounds history. SessionState defines lifecycle policy. No Speech/Core Audio/UI/network dependency.
+- **Application/Ports.swift:** SystemAudioCapturing delivers owning CMSampleBuffer values. SpeechRecognizing starts with an explicit language identifier and emits cumulative text, request ID, and actual finality. No timing ranges or punctuation segmenter are needed for display.
+- **RecognitionLanguage:** Provider-neutral locale ID/name/on-device capability, plus saved-identifier normalization. The Apple adapter supplies catalog values.
+- **CaptionSession:** Snapshots the selected language at start; coordinates permissions, capture, and recognition. Each changed event updates 300-block history and an independent three-block display. Generations reject stale callbacks and expiry. There is no punctuation, stability, or finality display gate.
+- **Infrastructure/Speech:** AppleSpeechRecognizer discovers supported locales and capability hints. At start it constructs the selected recognizer, checks availability/on-device support, and requires on-device recognition. Actual final results and the legacy maintenance timer start new requests. Callback values cross to MainActor; obsolete request IDs are rejected.
+- **Infrastructure/Audio:** CoreAudioTapCapture owns the private global process tap and tap-only aggregate. Dedicated control/sample queues manage HAL resources and owning PCM copies. Stop suppresses queued delivery/errors and cleans up partial startup.
+- **Persistence:** AppSettings stores appearance, chosen language, click-through, and Keep Onscreen; preview is transient. Retired backend keys are removed. History is not automatically persisted.
+- **Presentation:** Shared native language menus disable changes while running/transitioning. SubtitleView wraps text at fixed chosen size, scrolls to new content when Follow live is enabled, and supports review when disabled. The nonactivating panel optionally ignores mouse events. History rows are revised in place and exported explicitly.
+- **AppContainer:** Discovers the language catalog, injects a selected-language closure, selects adapters, and defers overlay hosting-view creation until view startup.
 
 ## Data flow
 
 ```mermaid
 sequenceDiagram
     participant User
-    participant Session as CaptionSession (MainActor)
-    participant Capture as Core Audio tap
-    participant Speech as On-device Apple Speech
-    participant UI as Overlay and history
-    User->>Session: Start captions
-    Session->>Speech: Authorize and require local Mandarin
-    Session->>Capture: Authorize system audio and start tap
-    loop While running
-        Capture->>Speech: Owning CMSampleBuffer
-        Speech->>Session: Cumulative text, ID, finality, timings
-        Session->>Session: Align consumption and select punctuation boundaries
-        Session->>UI: Publish recognized phrases directly
+    participant Settings
+    participant Session as CaptionSession
+    participant Speech as AppleSpeechRecognizer
+    participant UI as Rolling overlay and history
+    User->>Settings: Select spoken language while stopped/paused
+    User->>Session: Start or resume
+    Session->>Speech: Start with selected locale and require local recognition
+    Note over Session,Speech: System audio tap delivers owning sample buffers after speech readiness
+    loop Every recognition update
+        Speech->>Session: Request ID, cumulative text, actual finality
+        Session->>Session: Replace or append request snapshot
+        Session->>UI: Update immediately, including revisions
+        UI->>UI: Wrap and follow newest text if enabled
     end
-    User->>Session: Pause or stop
-    Session->>Session: Invalidate generation, clear draft/carry, cancel expiry
-    Session->>Speech: End audio and cancel recognition
-    Session->>Capture: Release resources
-    Session->>UI: Hide current caption; retain history
+    User->>Session: Pause/stop
+    Session->>Speech: Cancel request and invalidate callbacks
+    Session->>UI: Clear live display, retain history
 ```
 
-The [policy walkthrough](docs/CAPTION_POLICY.md) explains exact priority and examples. A punctuated partial can commit immediately. Revision alignment reduces replay; it does not establish stability or correct past captions. Only genuine finality can flush an unpunctuated tail.
+## Ownership and lifecycle
 
-## Concurrency and lifecycle
+Session/settings/presentation are MainActor isolated. Audio control and callbacks have separate serial queues. HAL memory is copied before callback return. AudioTapOutput synchronizes delivery with disable; SpeechAudioSink serializes append with endAudio/replacement. No audio is stored on disk.
 
-Presentation/settings/session use MainActor. Capture has dedicated serial control/sample queues. HAL buffers are copied before returning and never saved to disk. `AudioTapOutput` synchronizes delivery/disable and suppresses queued failures after stop; `SpeechAudioSink` synchronizes append with request replacement/endAudio.
+Session and request UUIDs reject obsolete speech callbacks. Coordinator generations invalidate callbacks and expiration tasks during pause/stop/failure/restart. Transition counters prevent overlapping starts while authorization or teardown is pending. A late permission response cannot revive a stopped session. Capture uses its own generation and partial-setup cleanup.
 
-Session/request UUIDs reject obsolete callbacks. Coordinator generation IDs invalidate callbacks and expiry tasks. Transition counters prevent overlapping starts during permission/teardown. Delayed permission cannot revive a stopped session. Capture has its own generation and partial-setup cleanup.
+History retains up to 300 request blocks, including their current provisional text. Updates preserve entry identity/time. Display retains three recent blocks from the current run and is cleared at pause/stop, so resuming in another language does not mix prior-run text into the window. Clear History does not hide the live display; later updates may add the active block again. The latest snapshots remain available for export without saving every revision.
 
-Every committed phrase enters history, capped at 300; the last phrase in a multi-phrase event becomes the overlay caption. A publication replaces the 12-second expiry task. There is no pending queue or inference latency. Pause/stop/failure clears display and carry while retaining history. Unexpected errors stop processing visibly, without retry loops or cloud fallback.
+Unchanged callbacks do not reset the 12-second idle-display timer. On expiry the current visibility marker is cleared but rolling text stays available for Keep Onscreen while running. Stop clears it regardless. This heuristic does not measure audio energy. Follow live is view-local; turning it off permits manual scrolling with an interactive panel.
 
-## Replacing recognition and operating offline
+## Engine replacement and limitations
 
-Implement `SpeechRecognizing` and select the adapter in AppContainer. Accept/convert audio internally, perform inference off MainActor, and emit cumulative hypotheses with request IDs, actual finality, and UTF-16 timings where available. Domain/views remain independent of Apple's recognition types. Delta/range-finalized results need an adapter or an explicit transcript-contract update.
+Implement SpeechRecognizing with local-only audio conversion/inference and cumulative request snapshots. Select the adapter in AppContainer. A delta/range-based engine needs an adapter or an explicit event-contract change. The current public SFSpeechRecognizer is not claimed to be the built-in Live Captions engine.
 
-The current engine uses OS-managed language assets; initial downloads may need internet, but recognition requires local support. Direct asset management and alternative embedded speech runtimes remain unimplemented. Do not describe legacy cumulative partials as having native stability guarantees.
+Initial OS language assets may require downloading outside the app. No direct model manager or cloud fallback exists. The legacy 45-second request rotation has no overlapping audio buffer and can lose audio. Cross-request text overlap is not deduplicated; legitimate repeated speech must be retained. Unsupported local languages fail explicitly before capture starts.
 
-## Privacy and verification
-
-Permissions are Speech Recognition and System Audio Recording. The app does not capture screens, open a microphone input, change default devices, or send transcripts to a network service. Protected audio may be unavailable. Logs contain lifecycle/error categories only. History is memory-only until explicitly exported.
-
-Domain tests cover punctuation, revisions, carry, and caption values. App tests cover direct publication, history limits, settings migration, lifecycle races, deferred native startup, and PCM ownership. Synthetic tests do not prove live permissions, speech quality, or Spaces behavior. See [VALIDATION.md](docs/VALIDATION.md).
+See [research](docs/LIVE_CAPTIONS_RESEARCH.md), [exact policy](docs/CAPTION_POLICY.md), and [verification](docs/VALIDATION.md). Permissions, sustained multilingual audio, overlay scrolling/Spaces, and recognition quality still require interactive acceptance beyond synthetic tests.
