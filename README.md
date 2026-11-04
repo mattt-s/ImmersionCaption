@@ -1,5 +1,7 @@
 # ImmersionCaption
 
+**English** | [简体中文](README.zh-CN.md)
+
 <img src="Resources/Artwork/AppIcon.png" alt="ImmersionCaption app icon" width="112" height="112">
 
 A native macOS app displaying live captions for application audio in a user-selected spoken language. Capture and recognition run locally. No microphone, translation service, or Ollama installation is required.
