@@ -6,7 +6,6 @@ struct SubtitleView: View {
     @ObservedObject var session: CaptionSession
     @ObservedObject var settings: AppSettings
     @State private var followsLive = true
-    private let bottomAnchor = "latest-caption"
 
     var body: some View {
         VStack {
@@ -31,40 +30,17 @@ struct SubtitleView: View {
                     .frame(height: 22)
                     .foregroundStyle(.white.opacity(0.85))
                 }
-                ScrollViewReader { reader in
-                    ScrollView(.vertical, showsIndicators: !settings.overlayIsClickThrough) {
-                        VStack(alignment: .leading, spacing: 12) {
-                            if session.displayCaptions.isEmpty {
-                                Text("Live captions appear here.")
-                            }
-                            ForEach(session.displayCaptions) { caption in
-                                Text(caption.text).id(caption.id)
-                                    .frame(maxWidth: .infinity, alignment: .leading)
-                            }
-                            Color.clear.frame(height: 1).id(bottomAnchor)
-                        }
-                        .font(.system(size: settings.fontSize, weight: .medium))
-                        .foregroundStyle(.white)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                    }
-                    .frame(height: min(260, settings.fontSize * 5))
-                    .onAppear { reader.scrollTo(bottomAnchor, anchor: .bottom) }
-                    .onChange(of: session.displayCaptions) { _, _ in
-                        if settings.overlayIsClickThrough || followsLive { reader.scrollTo(bottomAnchor, anchor: .bottom) }
-                    }
+                CaptionTextView(
+                    text: session.displayCaptions.isEmpty ? "Live captions appear here." :
+                        session.displayCaptions.map(\.text).joined(separator: "\n"),
+                    fontSize: settings.fontSize,
+                    followsLive: settings.overlayIsClickThrough || followsLive,
+                    showsScrollIndicator: !settings.overlayIsClickThrough)
+                    .frame(height: CaptionTextMetrics(fontSize: settings.fontSize)
+                        .viewportHeight(for: settings.maximumCaptionLines))
                     .onChange(of: settings.overlayIsClickThrough) { _, enabled in
-                        if enabled {
-                            followsLive = true
-                            reader.scrollTo(bottomAnchor, anchor: .bottom)
-                        }
+                        if enabled { followsLive = true }
                     }
-                    .onChange(of: followsLive) { _, follow in
-                        if follow { reader.scrollTo(bottomAnchor, anchor: .bottom) }
-                    }
-                    .onChange(of: settings.fontSize) { _, _ in
-                        if settings.overlayIsClickThrough || followsLive { reader.scrollTo(bottomAnchor, anchor: .bottom) }
-                    }
-                }
             }
             .padding(.trailing, 32)
             .padding(.horizontal, 24).padding(.vertical, 16)

@@ -4,7 +4,7 @@
 
 A native macOS app displaying live captions for application audio in a user-selected spoken language. Capture and recognition run locally. No microphone, translation service, or Ollama installation is required.
 
-**Version 0.7.0: lockable, draggable captions.** Unlock the overlay, drag its handle, and lock it at a saved custom location. Partial results appear immediately and corrections replace the current text in place. Punctuation and final results no longer gate display. The [research note](docs/LIVE_CAPTIONS_RESEARCH.md) explains the macOS Live Captions reference and the limits of that comparison.
+**Version 0.7.1: configurable caption lines.** Choose One, Two, or Three visible wrapped lines in Settings (default: Three). Unlock the overlay, drag its handle, and lock it at a saved custom location. Partial results appear immediately and corrections replace the current text in place. Punctuation and final results no longer gate display. The [research note](docs/LIVE_CAPTIONS_RESEARCH.md) explains the macOS Live Captions reference and the limits of that comparison.
 
 ## Features
 
@@ -12,7 +12,7 @@ A native macOS app displaying live captions for application audio in a user-sele
 - Spoken-language menu in the main window, settings, and menu bar. Options come from Apple Speech; on-device capability varies by language and Mac.
 - On-device recognition without cloud fallback. Language selection is explicit, not automatic detection.
 - Rolling, naturally wrapped text that supports revisions, scrolling, Follow live, and optional click-through.
-- Font size, background opacity, lock/unlock control, saved draggable positions, position presets, preview, and automatic hiding during silence.
+- Font size, maximum visible lines (one/two/three), background opacity, lock/unlock control, saved draggable positions, position presets, preview, and automatic hiding during silence.
 - Start/pause/resume/stop, menu controls, visible errors, and latest-300-block memory-only history with text export.
 
 ## Requirements
@@ -45,13 +45,13 @@ The build generates the icon and an ad-hoc signed development bundle at build/Im
 5. In interactive mode, leave **Follow live** on to track new text, or turn it off to scroll back. When locked with **Click-through overlay** enabled, the header/toggle and scrollbars are hidden and following is automatic. The small corner lock button remains clickable.
 6. Click the corner **lock** button to unlock positioning, then drag **Drag to move** in the caption header. Click the open lock to fix the position. Unlocking temporarily accepts mouse input and keeps the window visible, even in silence; locking restores your saved click-through preference and normal hiding.
 7. If captions are hidden, use **Unlock and move captions** in the menu bar or Settings. Locations survive caption updates, hide/show, and app reopening; reopening starts locked. Settings shows **Custom** after dragging. Choose **Top**, **Middle**, or **Bottom** to reset the custom location.
-8. Adjust font and opacity in Settings. Preview shows the overlay while stopped/paused without recording; it does not override automatic hiding during a running session. Unlocked positioning is a separate editing mode.
+8. Adjust font, **Maximum caption lines** (One/Two/Three), and opacity in Settings. The panel follows the chosen line count; Follow live shows the newest text. Earlier text remains scrollable and in history. Preview shows the overlay while stopped/paused without recording; it does not override automatic hiding during a running session. Unlocked positioning is a separate editing mode.
 
 Closing the main window leaves menu controls available; Quit ImmersionCaption exits. When locked, the entire caption window, including its background and lock button, hides after about one second without audible system output. Recognition continues. The window reappears when a changed recognition result arrives with recent audio; sound alone and late results in silence do not reveal old text. The former Keep Onscreen override is removed. Pause/stop clears the live display but retains history. Clear affects history, and subsequent updates can add the active block again. Export writes the current text snapshots to a chosen location.
 
 ## Display policy and limits
 
-See the [policy diagram](docs/CAPTION_POLICY.md) and [architecture](ARCHITECTURE.md). Each recognition request owns a revisable block. Partials replace its text instead of appending duplicate sentences. A real final marks the same entry final. The window retains three recent blocks and scrolls at the chosen font size, without arbitrary source cuts or font shrinking. History retains the latest 300 blocks.
+See the [policy diagram](docs/CAPTION_POLICY.md) and [architecture](ARCHITECTURE.md). Each recognition request owns a revisable block. Partials replace its text instead of appending duplicate sentences. A real final marks the same entry final. The window retains three recent request blocks and shows at most the selected one, two, or three wrapped lines at the chosen font size, without arbitrary source cuts or font shrinking. History retains the latest 300 blocks.
 
 The 45-second legacy request rotation can create audio gaps; audio overlap buffering is not implemented. Separate requests can repeat overlapping speech because no cross-request text deduplication is imposed. The public recognizer's latency/quality and supported locales can differ from built-in Live Captions. Sentence-level history, automatic language detection, semantic endpointing, translation, and direct asset downloading are not implemented.
 
@@ -67,7 +67,7 @@ Sources/ImmersionCaption/
   Infrastructure/                    Core Audio, selected Apple Speech locale, preferences
   Presentation/                      language menus, controls, settings, history, rolling overlay
 Resources/                           icon, privacy descriptions, entitlements
-Tests/ImmersionCaptionTests/          revisions, languages, lifecycle, PCM, positioning, persistence, native panels
+Tests/ImmersionCaptionTests/          revisions, languages, lifecycle, PCM, positioning, persistence, native panels/line layout
 scripts/                             build, launch, environment, compatibility checks
 docs/                                research, policy, architecture diagrams, validation
 ```

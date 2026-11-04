@@ -95,4 +95,20 @@ final class AppSettingsTests: XCTestCase {
         XCTAssertNil(settings.placement.custom)
     }
 
+    func testCaptionLineLimitDefaultsPersistsAndRejectsUnsupportedSavedValues() throws {
+        let suite = "ImmersionCaptionTests.\(UUID().uuidString)"
+        let defaults = try XCTUnwrap(UserDefaults(suiteName: suite))
+        defer { defaults.removePersistentDomain(forName: suite) }
+        let settings = AppSettings(languages: languages, defaults: defaults)
+        XCTAssertEqual(settings.maximumCaptionLines, .three)
+        for limit in CaptionLineLimit.allCases {
+            settings.maximumCaptionLines = limit
+            XCTAssertEqual(AppSettings(languages: languages, defaults: defaults).maximumCaptionLines, limit)
+        }
+        for invalid in [-1, 0, 4, 100] {
+            defaults.set(invalid, forKey: "maximumCaptionLines")
+            XCTAssertEqual(AppSettings(languages: languages, defaults: defaults).maximumCaptionLines, .three)
+        }
+    }
+
 }

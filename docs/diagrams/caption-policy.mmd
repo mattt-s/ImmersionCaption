@@ -12,7 +12,7 @@ flowchart TD
     Changed{"Text or finality changed?"}
     Duplicate["No extra history entry"]
     Publish["Update immediately<br/>History: newest 300 blocks<br/>Display: newest 3 current-run blocks"]
-    Scroll["Wrap at selected font size<br/>Follow live: scroll to newest text<br/>Follow off: manual review"]
+    Scroll["Wrap at selected font size<br/>Viewport: 1 / 2 / 3 lines, default 3<br/>Full buffered text remains scrollable<br/>Follow live: scroll to newest text<br/>Follow off: manual review"]
     Signal["Passively inspect captured PCM<br/>Record last signal above -80 dBFS<br/>Forward unchanged audio to speech"]
     Quiet["Poll every 100 ms<br/>One second without audible output<br/>Locked mode hides both panels"]
     Hide["Locked: hide panel + background + lock<br/>Keep history / recognition running"]

@@ -13,6 +13,7 @@ final class SubtitleOverlayController: NSObject, NSWindowDelegate {
     private let settings: AppSettings
     private var subscriptions = Set<AnyCancellable>()
     private var placement: OverlayPlacementPreference
+    private var maximumCaptionLines: CaptionLineLimit
     private var fontSize: Double
     private var locked: Bool
     private var clickThrough: Bool
@@ -25,6 +26,7 @@ final class SubtitleOverlayController: NSObject, NSWindowDelegate {
     init(session: CaptionSession, settings: AppSettings) {
         self.settings = settings
         placement = settings.placement
+        maximumCaptionLines = settings.maximumCaptionLines
         fontSize = settings.fontSize
         locked = settings.isOverlayLocked
         clickThrough = settings.clickThrough
@@ -41,9 +43,12 @@ final class SubtitleOverlayController: NSObject, NSWindowDelegate {
 
         // Consume published values directly: @Published emits before its property changes.
         settings.$placement.combineLatest(settings.$fontSize, settings.$isOverlayLocked, settings.$clickThrough)
-            .sink { [weak self] placement, size, locked, clickThrough in
+            .combineLatest(settings.$maximumCaptionLines)
+            .sink { [weak self] appearance, lines in
+                let (placement, size, locked, clickThrough) = appearance
                 guard let self else { return }
                 self.placement = placement
+                self.maximumCaptionLines = lines
                 self.fontSize = size
                 self.locked = locked
                 self.clickThrough = clickThrough
@@ -113,7 +118,7 @@ final class SubtitleOverlayController: NSObject, NSWindowDelegate {
         guard !recordingMove, let screen = targetScreen else { return }
         let visible = screen.visibleFrame
         let size = CGSize(width: min(960, max(1, visible.width - 64)),
-                          height: min(max(1, visible.height - 32), min(260, fontSize * 5) +
+                          height: min(max(1, visible.height - 32), CaptionTextMetrics(fontSize: fontSize).viewportHeight(for: maximumCaptionLines) +
                                       (locked && clickThrough ? 0 : 32) + 48))
         let bounds = visible.insetBy(dx: 8, dy: 8)
         let frame: CGRect?

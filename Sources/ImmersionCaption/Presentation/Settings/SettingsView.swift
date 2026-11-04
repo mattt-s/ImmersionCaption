@@ -20,6 +20,11 @@ struct SettingsView: View {
                     Slider(value: $settings.fontSize, in: 16...52, step: 1)
                     Text("\(Int(settings.fontSize)) pt").monospacedDigit().frame(width: 48)
                 }
+                Picker("Maximum caption lines", selection: $settings.maximumCaptionLines) {
+                    ForEach(CaptionLineLimit.allCases) { Text($0.title).tag($0) }
+                }
+                Text("Show the latest one, two, or three wrapped lines. Earlier text remains available by scrolling or in history.")
+                    .font(.caption).foregroundStyle(.secondary)
                 HStack {
                     Text("Background")
                     Slider(value: $settings.opacity, in: 0.2...1)

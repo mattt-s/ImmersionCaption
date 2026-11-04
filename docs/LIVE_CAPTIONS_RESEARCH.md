@@ -15,7 +15,7 @@ Apple's user guide describes visible behavior, not the internal recognition engi
 
 Our implementation interprets a real-time rolling transcript as immediate partial display, replacement of revisions in place, and natural wrapping/scrolling. This is an application design decision, supported by the existing recognizer's cumulative partial-result contract. It does not require finality or sentence boundaries before display.
 
-## Implemented choices (0.6.x, positioning updated in 0.7.0)
+## Implemented choices (0.6.x, positioning in 0.7.0, line choices in 0.7.1)
 
 | Concern | Choice |
 | --- | --- |
@@ -25,7 +25,7 @@ Our implementation interprets a real-time rolling transcript as immediate partia
 | Partial results | Show the latest text immediately; earlier words can be replaced or deleted. |
 | Repeated callbacks | Replace the same request entry; unchanged callbacks do not create entries or reset idle display time. |
 | Final results | Mark the existing entry final. Finality is metadata, not a display gate. |
-| Rolling layout | Recent three request blocks wrap at the selected font size in a scroll view. Follow live scrolls to the newest text; turn it off to review. |
+| Rolling layout | Recent three request blocks wrap at the selected font size in a native text scroll view. Since 0.7.1, Settings chooses one, two, or three visible wrapped lines (default three), without truncating the buffered text. Follow live scrolls to the newest text; turn it off to review. |
 | History | Latest 300 request snapshots in memory, revised in place. This is not a word-by-word event log or a list of punctuation-delimited sentences. |
 | Idle window | Since 0.6.2, passively measure captured PCM and hide the whole panel after about one second of silence. Resume visibility only with changed recognized text and recent audio. This threshold/grace is our own heuristic. Keep Onscreen was removed at the user's request. |
 | Interaction | Interactive overlay by default; locked click-through hides the header/Follow live toggle and enables automatic following. A separate corner lock button stays clickable. Unlocking is our explicit editing mode: keep visible, accept mouse input, and drag a dedicated handle. Relock restores normal hiding/click-through. Explicit preview is limited to non-running states. |

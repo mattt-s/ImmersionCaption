@@ -68,6 +68,11 @@ final class SubtitleOverlayControllerTests: XCTestCase {
         XCTAssertEqual(overlay.panel.frame.maxY, moved.maxY, accuracy: 0.5)
         settings.fontSize = 36
         XCTAssertEqual(overlay.panel.frame.maxY, moved.maxY, accuracy: 0.5)
+        let threeLineHeight = overlay.panel.frame.height
+        settings.maximumCaptionLines = .one
+        XCTAssertEqual(overlay.panel.frame.maxY, moved.maxY, accuracy: 0.5)
+        XCTAssertEqual(threeLineHeight - overlay.panel.frame.height,
+                       CaptionTextMetrics(fontSize: 36).lineHeight * 2, accuracy: 0.5)
         settings.selectPositionPreset(.top)
         XCTAssertNil(settings.placement.custom)
         XCTAssertEqual(overlay.panel.frame.maxY, bounds.maxY - 32, accuracy: 0.5)

@@ -1,5 +1,18 @@
 # Validation record
 
+## 0.7.1: maximum visible caption lines — 2026-11-04 (Asia/Tokyo)
+
+Added Settings → Maximum caption lines: One, Two, or Three, defaulting to Three. The saved choice resizes the caption viewport and panel immediately. The three-request rolling buffer and 300-block history remain unchanged. CaptionTextView uses native TextKit wrapping with shared CaptionTextMetrics for uniform line fragments and whole-line viewport sizing; following shows the newest lines while manual review keeps full buffered text available.
+
+**Verified for 0.7.1, build 11:**
+
+- **40 app tests and 13 domain tests passed: 53 total, zero failures.** New native TextKit checks count visible full line fragments for all three choices, font sizes 16/28/52, English, and Chinese with emoji. They also check full-text preservation, following versus manual review, width/height changes, preference defaults/persistence/invalid values, and custom top-left preservation while the panel shrinks from three lines to one.
+- **11 production-domain compatibility checks passed.** The release bundle built, passed ad-hoc signature verification, and passed the new-instance launch/window check without starting capture.
+- A temporary native view-rendering probe produced one/two/three-line PNGs from synthetic text for visual inspection, without screen/audio recording. The probe was removed afterwards. This is own-view rendering evidence, not a live playback or physical scrolling check.
+- Architecture and policy diagrams were regenerated to SVG/PNG and visually inspected. Documentation links, SVG XML, privacy/version property lists, shell syntax, and Git whitespace checks passed.
+
+The initial compile required explicitly qualifying a CGFloat size constant; no compile/test failures remain. Live multilingual playback, manual review scrolling, and UI behavior across actual monitor/Spaces transitions still require interactive acceptance. No recognition or permission changes are introduced.
+
 ## 0.7.0: lockable draggable overlay — 2026-11-04 (Asia/Tokyo)
 
 Added a corner lock button, native drag handle, menu/settings positioning command, saved custom display-relative top-left anchors, preset reset, and screen-bound restoration. Unlocked positioning intentionally stays visible and interactive; relocking restores the saved click-through preference and normal silence/preview policy. Recognition callbacks no longer reset an already-visible frame.

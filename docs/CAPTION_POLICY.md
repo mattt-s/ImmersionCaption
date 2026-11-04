@@ -1,6 +1,6 @@
 # Current live-caption policy
 
-Updated 2026-11-04 (Asia/Tokyo) for **0.7.0**. This policy supersedes the punctuation-based 0.5.0 implementation. See [research before implementation](LIVE_CAPTIONS_RESEARCH.md) for the macOS Live Captions reference and its limits.
+Updated 2026-11-04 (Asia/Tokyo) for **0.7.1**. This policy supersedes the punctuation-based 0.5.0 implementation. See [research before implementation](LIVE_CAPTIONS_RESEARCH.md) for the macOS Live Captions reference and its limits.
 
 ![Live caption update policy](diagrams/caption-policy.svg)
 
@@ -34,9 +34,9 @@ No sentence/comma cuts, stable-prefix confirmation, character targets, gaps, or 
 
 ## Rolling layout and review
 
-Recent request blocks wrap at the chosen font size inside a scroll view. Follow live scrolls to the bottom on updates and font changes. Turn it off to scroll back; re-enable it to return to the newest text. The default panel is interactive. Locked click-through disables mouse interaction on the caption surface, hides the whole header/Follow live toggle and scrollbars, and forces following so a previously paused review cannot freeze an unclickable overlay. The small corner lock button remains clickable in its own child panel. Unlocking temporarily enables interaction, showing the drag handle and review controls without changing the saved click-through preference. Relocking restores click-through and automatic following when enabled. History in the main window remains selectable/exportable.
+Recent request blocks wrap at the chosen font size inside a native text scroll view. Settings → **Maximum caption lines** offers **One**, **Two**, and **Three** (default Three), persisted across launches. This controls visible wrapped lines, independently of the three-request buffer. The caption viewport and overlay height update immediately; the header and lock control do not count as text lines. Follow live scrolls to the bottom on updates and font changes. Turn it off to scroll back; re-enable it to return to the newest text. The default panel is interactive. Locked click-through disables mouse interaction on the caption surface, hides the whole header/Follow live toggle and scrollbars, and forces following so a previously paused review cannot freeze an unclickable overlay. The small corner lock button remains clickable in its own child panel. Unlocking temporarily enables interaction, showing the drag handle and review controls without changing the saved click-through preference. Relocking restores click-through and automatic following when enabled. History in the main window remains selectable/exportable.
 
-The display retains three blocks, not a fixed number of source characters. Long snapshots are scrolled rather than shrunk or silently clipped to a source-length target. History retains at most 300 blocks. It is a set of latest recognition snapshots rather than an audit log of every draft or sentence.
+TextKit uses a shared fixed line height for the selected font, including room for CJK/emoji fallback. The viewport fits the selected number of complete lines while following the latest text; scroll manually with Follow live off to review earlier text. Request blocks are separated by one paragraph break without extra paragraph spacing. The display retains three blocks, not a fixed number of source characters. Long snapshots are scrolled rather than shrunk or silently clipped to a source-length target. History retains at most 300 blocks. It is a set of latest recognition snapshots rather than an audit log of every draft or sentence.
 
 ## Idle behavior, requests, and lifecycle
 
@@ -61,6 +61,7 @@ Dragging records a custom display-relative top-left anchor. Caption revisions do
 - [AppleSpeechRecognizer](../Sources/ImmersionCaption/Infrastructure/Speech/AppleSpeechRecognizer.swift): language catalog, local-only checks, partial callbacks, rotation.
 - [OverlayGeometry](../Packages/CaptionCore/Sources/CaptionCore/OverlayGeometry.swift) and [SubtitleOverlayController](../Sources/ImmersionCaption/Presentation/Overlay/SubtitleOverlayController.swift): saved anchors, clamping, native dragging, child control, and locked/unlocked visibility.
 - [PCMActivityMonitor](../Sources/ImmersionCaption/Infrastructure/Audio/PCMActivityMonitor.swift): passive sample inspection and thread-safe activity timestamp.
-- [LanguagePicker](../Sources/ImmersionCaption/Presentation/Controls/LanguagePicker.swift) and [SubtitleView](../Sources/ImmersionCaption/Presentation/Overlay/SubtitleView.swift): selection, wrapping, follow/scroll.
+- [LanguagePicker](../Sources/ImmersionCaption/Presentation/Controls/LanguagePicker.swift) and [SubtitleView](../Sources/ImmersionCaption/Presentation/Overlay/SubtitleView.swift): selection and overlay controls.
+- [CaptionTextView](../Sources/ImmersionCaption/Presentation/Overlay/CaptionTextView.swift) and [CaptionTextMetrics](../Sources/ImmersionCaption/Presentation/Overlay/CaptionTextMetrics.swift): full-text wrapping/scrolling and shared one/two/three-line viewport sizing.
 
 Tests cover draft revisions, identity, final updates, repeated speech, Unicode/shorter text, empty revisions, bounded buffers, locale persistence, unavailable languages, and lifecycle races. They do not establish the accuracy/latency of each installed language or a pixel-for-pixel match to Live Captions. See [VALIDATION.md](VALIDATION.md).

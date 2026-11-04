@@ -8,6 +8,19 @@ enum SubtitlePosition: String, CaseIterable, Identifiable, Codable {
     var title: String { rawValue.capitalized }
 }
 
+/// The maximum number of wrapped caption lines visible at once.
+enum CaptionLineLimit: Int, CaseIterable, Identifiable {
+    case one = 1, two, three
+    var id: Int { rawValue }
+    var title: String {
+        switch self {
+        case .one: return "One"
+        case .two: return "Two"
+        case .three: return "Three"
+        }
+    }
+}
+
 /// A preset is retained as a fallback while a custom anchor is active.
 struct OverlayPlacementPreference: Codable, Equatable {
     var preset: SubtitlePosition
@@ -18,6 +31,7 @@ struct OverlayPlacementPreference: Codable, Equatable {
 @MainActor
 final class AppSettings: ObservableObject {
     @Published var fontSize: Double { didSet { defaults.set(fontSize, forKey: "fontSize") } }
+    @Published var maximumCaptionLines: CaptionLineLimit { didSet { defaults.set(maximumCaptionLines.rawValue, forKey: "maximumCaptionLines") } }
     @Published var opacity: Double { didSet { defaults.set(opacity, forKey: "opacity") } }
     @Published private(set) var placement: OverlayPlacementPreference {
         didSet {
@@ -40,6 +54,7 @@ final class AppSettings: ObservableObject {
         let stored = defaults.string(forKey: "languageIdentifier") ?? "zh-CN"
         languageIdentifier = RecognitionLanguage.matching(stored, in: availableLanguages)?.id
             ?? availableLanguages.first?.id ?? ""
+        maximumCaptionLines = CaptionLineLimit(rawValue: defaults.integer(forKey: "maximumCaptionLines")) ?? .three
         clickThrough = defaults.object(forKey: "clickThrough") as? Bool ?? false
         // Retire settings from the removed backend and second subtitle line.
         ["endpoint", "model", "bilingual", "keepOnscreen"].forEach { defaults.removeObject(forKey: $0) }
