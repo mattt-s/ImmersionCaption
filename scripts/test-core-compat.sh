@@ -1,5 +1,5 @@
 #!/bin/bash
-# Foundation-only checks for machines whose old command-line tools lack XCTest.
+# Lightweight domain checks for machines whose command-line tools lack XCTest.
 set -euo pipefail
 project_root="$(cd "$(dirname "$0")/.." && pwd)"
 temporary_dir="$(mktemp -d)"

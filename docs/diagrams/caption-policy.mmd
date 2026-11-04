@@ -14,10 +14,12 @@ flowchart TD
     Publish["Update immediately<br/>History: newest 300 blocks<br/>Display: newest 3 current-run blocks"]
     Scroll["Wrap at selected font size<br/>Follow live: scroll to newest text<br/>Follow off: manual review"]
     Signal["Passively inspect captured PCM<br/>Record last signal above -80 dBFS<br/>Forward unchanged audio to speech"]
-    Quiet["Poll every 100 ms<br/>One second without audible output"]
-    Hide["Hide entire panel + background<br/>Keep history / recognition running"]
+    Quiet["Poll every 100 ms<br/>One second without audible output<br/>Locked mode hides both panels"]
+    Hide["Locked: hide panel + background + lock<br/>Keep history / recognition running"]
     Audible{"Changed nonempty result<br/>with recent audio?"}
-    Show["Show whole panel<br/>Click-through: text only + auto-follow<br/>Interactive: Follow live + review"]
+    Show["Show whole panel<br/>Locked click-through: auto-follow<br/>Corner lock button remains interactive<br/>Interactive: Follow live + review"]
+    Unlock["Unlock via corner / menu / Settings<br/>Keep visible, enable mouse input<br/>Drag handle saves custom location"]
+    Relock["Relock: restore saved click-through<br/>Reapply normal visibility policy"]
     Note["No punctuation or isFinal display gate<br/>Revisions keep identity and first-seen time<br/>Finality marks the same entry final"]
     Select --> Ready
     Ready -->|"No"| Error
@@ -30,11 +32,15 @@ flowchart TD
     Audible -->|"Yes"| Show --> Scroll
     Audible -->|"No"| Hide
     Update -.-> Note
+    Show -.-> Unlock
+    Hide -.->|"Menu / Settings"| Unlock
+    Unlock --> Relock
+    Relock -.-> Audible
     classDef input fill:#eaf2ff,stroke:#3b67b1,color:#172b4d
     classDef policy fill:#e8f5f1,stroke:#23836d,color:#153e35
     classDef output fill:#f2ecfc,stroke:#815bb3,color:#382254
     classDef warning fill:#fff1df,stroke:#b9822d,color:#513b16
     class Select,Ready,Start,Signal,Event input
     class Current,Update,Changed policy
-    class Publish,Scroll,Show,Quiet,Hide output
+    class Publish,Scroll,Show,Quiet,Hide,Unlock,Relock output
     class Error,Note warning

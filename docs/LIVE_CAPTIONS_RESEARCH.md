@@ -15,7 +15,7 @@ Apple's user guide describes visible behavior, not the internal recognition engi
 
 Our implementation interprets a real-time rolling transcript as immediate partial display, replacement of revisions in place, and natural wrapping/scrolling. This is an application design decision, supported by the existing recognizer's cumulative partial-result contract. It does not require finality or sentence boundaries before display.
 
-## Implemented choices in 0.6.x
+## Implemented choices (0.6.x, positioning updated in 0.7.0)
 
 | Concern | Choice |
 | --- | --- |
@@ -28,7 +28,8 @@ Our implementation interprets a real-time rolling transcript as immediate partia
 | Rolling layout | Recent three request blocks wrap at the selected font size in a scroll view. Follow live scrolls to the newest text; turn it off to review. |
 | History | Latest 300 request snapshots in memory, revised in place. This is not a word-by-word event log or a list of punctuation-delimited sentences. |
 | Idle window | Since 0.6.2, passively measure captured PCM and hide the whole panel after about one second of silence. Resume visibility only with changed recognized text and recent audio. This threshold/grace is our own heuristic. Keep Onscreen was removed at the user's request. |
-| Interaction | Interactive overlay by default; optional click-through hides the header/Follow live toggle and enables automatic following. Explicit preview is limited to non-running states. History remains accessible in the main window. |
+| Interaction | Interactive overlay by default; locked click-through hides the header/Follow live toggle and enables automatic following. A separate corner lock button stays clickable. Unlocking is our explicit editing mode: keep visible, accept mouse input, and drag a dedicated handle. Relock restores normal hiding/click-through. Explicit preview is limited to non-running states. |
+| Position | Native AppKit dragging saves a validated display-relative top-left anchor; presets clear the custom location. Restore within visible screen bounds after monitor changes. Every launch starts locked. These are our positioning choices, not a claim about Apple's private implementation. |
 | Request limits | Retain the legacy 45-second rotation. A new request starts a new block; no invented finality or old-text concatenation. Audio overlap buffering remains unimplemented. |
 
 No translation, network speech fallback, new inference runtime, microphone input, screen capture, or automatic language detection is introduced. See [current policy](CAPTION_POLICY.md), [architecture](../ARCHITECTURE.md), and [verification record](VALIDATION.md).

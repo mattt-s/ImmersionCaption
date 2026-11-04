@@ -1,10 +1,17 @@
 import Foundation
 import Combine
+import CaptionCore
 
-enum SubtitlePosition: String, CaseIterable, Identifiable {
+enum SubtitlePosition: String, CaseIterable, Identifiable, Codable {
     case top, middle, bottom
     var id: String { rawValue }
     var title: String { rawValue.capitalized }
+}
+
+/// A preset is retained as a fallback while a custom anchor is active.
+struct OverlayPlacementPreference: Codable, Equatable {
+    var preset: SubtitlePosition
+    var custom: SavedOverlayPosition?
 }
 
 /// Stores preferences only. Audio and subtitle history are never persisted automatically.
@@ -12,7 +19,14 @@ enum SubtitlePosition: String, CaseIterable, Identifiable {
 final class AppSettings: ObservableObject {
     @Published var fontSize: Double { didSet { defaults.set(fontSize, forKey: "fontSize") } }
     @Published var opacity: Double { didSet { defaults.set(opacity, forKey: "opacity") } }
-    @Published var position: SubtitlePosition { didSet { defaults.set(position.rawValue, forKey: "position") } }
+    @Published private(set) var placement: OverlayPlacementPreference {
+        didSet {
+            if let data = try? JSONEncoder().encode(placement) { defaults.set(data, forKey: "overlayPlacement") }
+            defaults.set(placement.preset.rawValue, forKey: "position")
+        }
+    }
+    // Editing is transient: every app launch starts locked at the persisted position.
+    @Published var isOverlayLocked = true
     @Published var languageIdentifier: String { didSet { defaults.set(languageIdentifier, forKey: "languageIdentifier") } }
     @Published var clickThrough: Bool { didSet { defaults.set(clickThrough, forKey: "clickThrough") } }
     @Published var previewOverlay = false
@@ -33,6 +47,28 @@ final class AppSettings: ObservableObject {
         let storedOpacity = defaults.object(forKey: "opacity") as? Double ?? 0.78
         fontSize = storedSize.isFinite ? min(52, max(16, storedSize)) : 28
         opacity = storedOpacity.isFinite ? min(1, max(0.2, storedOpacity)) : 0.78
-        position = SubtitlePosition(rawValue: defaults.string(forKey: "position") ?? "") ?? .bottom
+        let preset = SubtitlePosition(rawValue: defaults.string(forKey: "position") ?? "") ?? .bottom
+        if let data = defaults.data(forKey: "overlayPlacement"),
+           let saved = try? JSONDecoder().decode(OverlayPlacementPreference.self, from: data),
+           saved.custom?.isValid != false {
+            placement = saved
+        } else {
+            placement = OverlayPlacementPreference(preset: preset, custom: nil)
+        }
     }
+
+    /// Unlocking temporarily permits interaction without changing the saved preference.
+    var overlayIsClickThrough: Bool { isOverlayLocked && clickThrough }
+    var positionIdentifier: String { placement.custom == nil ? placement.preset.rawValue : "custom" }
+
+    func selectPositionPreset(_ preset: SubtitlePosition) {
+        placement = OverlayPlacementPreference(preset: preset, custom: nil)
+    }
+
+    func saveCustomPosition(_ position: SavedOverlayPosition) {
+        guard position.isValid else { return }
+        let updated = OverlayPlacementPreference(preset: placement.preset, custom: position)
+        if placement != updated { placement = updated }
+    }
+
 }

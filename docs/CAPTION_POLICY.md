@@ -1,6 +1,6 @@
 # Current live-caption policy
 
-Updated 2026-11-04 (Asia/Tokyo) for **0.6.2**. This policy supersedes the punctuation-based 0.5.0 implementation. See [research before implementation](LIVE_CAPTIONS_RESEARCH.md) for the macOS Live Captions reference and its limits.
+Updated 2026-11-04 (Asia/Tokyo) for **0.7.0**. This policy supersedes the punctuation-based 0.5.0 implementation. See [research before implementation](LIVE_CAPTIONS_RESEARCH.md) for the macOS Live Captions reference and its limits.
 
 ![Live caption update policy](diagrams/caption-policy.svg)
 
@@ -34,25 +34,32 @@ No sentence/comma cuts, stable-prefix confirmation, character targets, gaps, or 
 
 ## Rolling layout and review
 
-Recent request blocks wrap at the chosen font size inside a scroll view. Follow live scrolls to the bottom on updates and font changes. Turn it off to scroll back; re-enable it to return to the newest text. The default panel is interactive. Click-through disables mouse interaction, hides the whole header/Follow live toggle and scrollbars, and forces following so a previously paused review cannot freeze an unclickable overlay. History in the main window remains selectable/exportable.
+Recent request blocks wrap at the chosen font size inside a scroll view. Follow live scrolls to the bottom on updates and font changes. Turn it off to scroll back; re-enable it to return to the newest text. The default panel is interactive. Locked click-through disables mouse interaction on the caption surface, hides the whole header/Follow live toggle and scrollbars, and forces following so a previously paused review cannot freeze an unclickable overlay. The small corner lock button remains clickable in its own child panel. Unlocking temporarily enables interaction, showing the drag handle and review controls without changing the saved click-through preference. Relocking restores click-through and automatic following when enabled. History in the main window remains selectable/exportable.
 
 The display retains three blocks, not a fixed number of source characters. Long snapshots are scrolled rather than shrunk or silently clipped to a source-length target. History retains at most 300 blocks. It is a set of latest recognition snapshots rather than an audit log of every draft or sentence.
 
 ## Idle behavior, requests, and lifecycle
 
-The capture receiver passively measures PCM signal above a -80 dBFS peak floor. It forwards unchanged audio to recognition and stores only the last-audible monotonic timestamp. One 100 ms polling task hides the entire panel after one second without activity, whether callbacks deliver silence or stop entirely. Brief gaps remain visible. There is no Keep Onscreen override.
+The capture receiver passively measures PCM signal above a -80 dBFS peak floor. It forwards unchanged audio to recognition and stores only the last-audible monotonic timestamp. When locked, one 100 ms polling task hides the entire panel after one second without activity, whether callbacks deliver silence or stop entirely. Brief gaps remain visible. There is no Keep Onscreen override.
 
-Changed recognition results continue updating history while silent but cannot reopen the panel. When audio resumes, the panel stays hidden until a changed nonempty recognition result arrives with recent activity. Rolling snapshots remain available; sound alone does not reveal stale captions. Each new capture run gets an independent monitor, and cancellation/generation checks reject old polling work. This is an output-activity heuristic, not voice detection or recognition finalization. Explicit preview is allowed while stopped/paused, never as an override while running.
+Changed recognition results continue updating history while silent but cannot reopen the panel. When audio resumes, the panel stays hidden until a changed nonempty recognition result arrives with recent activity. Rolling snapshots remain available; sound alone does not reveal stale captions. Each new capture run gets an independent monitor, and cancellation/generation checks reject old polling work. This is an output-activity heuristic, not voice detection or recognition finalization. Explicit preview is allowed while stopped/paused, never as an override while running. Unlocked positioning is an intentional editing exception: the overlay and lock control stay visible until relocked, including during silence or a stopped session. Recognition visibility and history continue updating normally underneath this presentation mode.
 
 Native final results and the 45-second legacy rotation start new request IDs. The previous snapshot remains as last observed; maintenance does not fabricate finality. A new ID starts another display block rather than concatenating uncommitted text. There is no overlap audio buffer or cross-request text deduplication, so gaps/repeated boundary speech remain possible.
 
 Pause/stop/failure/restart invalidates generations, cancels visibility monitoring, and clears current-run display. History remains until cleared or quit. Clear History preserves live display; subsequent changes can create a new history entry for the still-active request. New sessions must use new request IDs; the native adapter rejects obsolete request callbacks.
+
+## Position and locking
+
+The app starts locked at the saved location. Unlock with the corner button or **Unlock and move captions** in the menu bar/Settings; use the **Drag to move** handle, then relock. The saved click-through preference is restored immediately. If normal silence policy says the caption is hidden, relocking hides both panels.
+
+Dragging records a custom display-relative top-left anchor. Caption revisions do not reset the window. Hide/show and relaunch restore it; font/control height changes keep the same top-left anchor unless constrained by screen bounds. The Position picker shows Custom after movement; choosing Top/Middle/Bottom clears custom placement. Resolution changes and disconnected displays restore a reachable frame, with the primary screen as fallback. Manual resizing is not implemented.
 
 ## Code and verification
 
 - [LiveTranscript](../Packages/CaptionCore/Sources/CaptionCore/LiveTranscript.swift): revision replacement, finality, blank retraction, history bounds.
 - [CaptionSession](../Sources/ImmersionCaption/Application/CaptionSession.swift): locale snapshot, lifecycle, history/display buffers, silence visibility.
 - [AppleSpeechRecognizer](../Sources/ImmersionCaption/Infrastructure/Speech/AppleSpeechRecognizer.swift): language catalog, local-only checks, partial callbacks, rotation.
+- [OverlayGeometry](../Packages/CaptionCore/Sources/CaptionCore/OverlayGeometry.swift) and [SubtitleOverlayController](../Sources/ImmersionCaption/Presentation/Overlay/SubtitleOverlayController.swift): saved anchors, clamping, native dragging, child control, and locked/unlocked visibility.
 - [PCMActivityMonitor](../Sources/ImmersionCaption/Infrastructure/Audio/PCMActivityMonitor.swift): passive sample inspection and thread-safe activity timestamp.
 - [LanguagePicker](../Sources/ImmersionCaption/Presentation/Controls/LanguagePicker.swift) and [SubtitleView](../Sources/ImmersionCaption/Presentation/Overlay/SubtitleView.swift): selection, wrapping, follow/scroll.
 

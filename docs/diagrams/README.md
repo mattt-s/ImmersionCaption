@@ -1,6 +1,6 @@
 # Caption application diagrams
 
-architecture.mmd maps multilingual rolling-caption components. caption-policy.mmd shows language readiness, immediate partial replacement, and rolling display decisions. Keep editable Mermaid and SVG/PNG exports synchronized. See the [architecture](../../ARCHITECTURE.md) and [policy](../CAPTION_POLICY.md).
+architecture.mmd maps multilingual rolling-caption components, native drag/lock panels, and saved placement geometry. caption-policy.mmd shows language readiness, immediate partial replacement, rolling display, and the explicit unlocked-positioning visibility exception. Keep editable Mermaid and SVG/PNG exports synchronized. See the [architecture](../../ARCHITECTURE.md) and [policy](../CAPTION_POLICY.md).
 
 ## Regeneration
 

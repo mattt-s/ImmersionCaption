@@ -18,6 +18,10 @@ struct MenuBarView: View {
         LanguagePicker(settings: settings,
             isEnabled: session.state != .running && !session.isTransitioning)
         Divider()
+        Button(settings.isOverlayLocked ? "Unlock and move captions" : "Lock caption position") {
+            settings.isOverlayLocked.toggle()
+        }
+        Divider()
         Button("Open ImmersionCaption") {
             openWindow(id: "main")
             NSApp.activate(ignoringOtherApps: true)

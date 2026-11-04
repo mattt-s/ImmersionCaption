@@ -4,11 +4,12 @@ flowchart LR
     subgraph App["ImmersionCaption.app"]
         Container["AppContainer<br/>Language discovery + injection<br/>Deferred overlay creation"]
         Controls["Main window + menu bar<br/>Spoken-language picker<br/>Start / pause / resume / stop"]
-        Overlay["Rolling caption overlay<br/>Immediate revisable text<br/>Wrap + scroll + Follow live"]
+        Overlay["Rolling caption overlay<br/>Immediate revisable text<br/>Wrap + scroll + Follow live<br/>Native drag handle + lock control"]
+        Lock["Small interactive child panel<br/>Lock / unlock<br/>Moves and hides with caption panel"]
         History["History + text export<br/>Latest 300 request snapshots"]
         Session["CaptionSession · MainActor<br/>Locale + lifecycle + visibility<br/>Independent display/history buffers"]
-        Core["CaptionCore · Foundation<br/>Caption + LiveTranscript<br/>SessionState"]
-        Settings["AppSettings<br/>Language + appearance<br/>Click-through + preview"]
+        Core["CaptionCore<br/>Caption + LiveTranscript + SessionState<br/>SavedOverlayPosition + OverlayGeometry"]
+        Settings["AppSettings<br/>Language + appearance<br/>Click-through + preview<br/>Preset / custom anchor + lock state"]
         Activity["AudioActivityMonitoring<br/>PCMActivityMonitor<br/>Passive last-audible timestamp"]
         Capture["SystemAudioCapturing<br/>CoreAudioTapCapture"]
         Speech["SpeechRecognizing<br/>AppleSpeechRecognizer<br/>Selected local locale"]
@@ -22,7 +23,10 @@ flowchart LR
     Controls -->|"selection"| Settings
     Overlay -->|"observes"| Session
     History -->|"observes"| Session
-    Overlay -->|"appearance"| Settings
+    Overlay -->|"appearance / saved position"| Settings
+    Overlay -->|"validate / restore / constrain"| Core
+    Overlay ---|"attached window"| Lock
+    Lock -->|"toggle lock"| Settings
     Settings --> Defaults
     Session -->|"snapshot rules"| Core
     Session -->|"start / stop"| Capture
@@ -38,6 +42,6 @@ flowchart LR
     classDef domain fill:#f2ecfc,stroke:#815bb3,color:#382254
     classDef adapter fill:#fff4df,stroke:#b9822d,color:#513b16
     class Session,Container application
-    class Controls,Overlay,History presentation
+    class Controls,Overlay,Lock,History presentation
     class Core domain
     class Settings,Capture,Speech,Activity adapter

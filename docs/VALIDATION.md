@@ -1,5 +1,18 @@
 # Validation record
 
+## 0.7.0: lockable draggable overlay — 2026-11-04 (Asia/Tokyo)
+
+Added a corner lock button, native drag handle, menu/settings positioning command, saved custom display-relative top-left anchors, preset reset, and screen-bound restoration. Unlocked positioning intentionally stays visible and interactive; relocking restores the saved click-through preference and normal silence/preview policy. Recognition callbacks no longer reset an already-visible frame.
+
+**Verified for 0.7.0, build 10:**
+
+- **36 app tests and 13 domain tests passed: 49 total, zero failures.** New checks cover negative-origin display round trips, top-edge preservation when control/font height changes, smaller fallback screens, oversized/offscreen frames, invalid anchors, legacy preference migration, custom persistence, preset reset, and transient unlock state. Native panel fixtures verify click-through restoration, stopped-session visibility, child attachment after hide/reveal, movement with the parent, and no snapping on speech revisions. Fixtures capture no audio and request no permissions.
+- **11 production-domain compatibility checks passed.** Debug/release builds, ad-hoc signature verification, and the new-instance application/window launch check passed. The launch check leaves the app open without starting capture.
+- Both architecture/policy diagrams were regenerated to SVG/PNG and their PNGs visually inspected. Local documentation links, SVG XML, privacy property lists, shell syntax, and Git whitespace checks passed.
+- An initial native test caught AppKit detaching the child lock panel on orderOut. The controller now reattaches it when showing the caption; regression checks cover repeated hide/reveal. An initial compile also identified the native CoreGraphics geometry import needed by CaptionCore. Both issues were corrected before the passing runs.
+
+Automated native checks move windows programmatically and inspect metadata. Physical mouse dragging, clicking the lock over other applications in click-through mode, actual monitor disconnection, Spaces/fullscreen, and live playback still need interactive acceptance. No new audio capture/recognition behavior or privacy permission is introduced. Manual resizing remains unimplemented.
+
 ## 0.6.2: click-through controls and silent-output hiding — 2026-11-04 (Asia/Tokyo)
 
 Click-through mode now hides the header/Follow live toggle and scrollbars, with automatic following. Removed Keep Onscreen and its saved preference. A passive per-capture PCM activity monitor and one bounded visibility task hide the full panel after about one second of silence, without modifying recognition. New recognized text plus recent audio reopens it; late results in silence and sound alone do not. Explicit preview applies only outside running/starting states.

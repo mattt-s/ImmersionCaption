@@ -1,4 +1,5 @@
 import XCTest
+import CaptionCore
 @testable import ImmersionCaption
 
 @MainActor
@@ -53,4 +54,45 @@ final class AppSettingsTests: XCTestCase {
             XCTAssertEqual(settings.languageIdentifier, "")
         }
     }
+
+    func testCustomPlacementPersistsButUnlockDoesNotChangeSavedClickThrough() throws {
+        let suite = "ImmersionCaptionTests.\(UUID().uuidString)"
+        let defaults = try XCTUnwrap(UserDefaults(suiteName: suite))
+        defer { defaults.removePersistentDomain(forName: suite) }
+        defaults.set("top", forKey: "position")
+        let settings = AppSettings(languages: languages, defaults: defaults)
+        XCTAssertEqual(settings.placement.preset, .top)
+        settings.clickThrough = true
+        settings.isOverlayLocked = false
+        XCTAssertFalse(settings.overlayIsClickThrough)
+        XCTAssertTrue(settings.clickThrough)
+        let location = SavedOverlayPosition(screenIdentifier: "display", horizontalFraction: 0.1, verticalFraction: 0.2)
+        settings.saveCustomPosition(location)
+        XCTAssertEqual(settings.positionIdentifier, "custom")
+
+        let restored = AppSettings(languages: languages, defaults: defaults)
+        XCTAssertEqual(restored.placement.custom, location)
+        XCTAssertTrue(restored.isOverlayLocked)
+        XCTAssertTrue(restored.overlayIsClickThrough)
+        restored.selectPositionPreset(.bottom)
+        XCTAssertNil(restored.placement.custom)
+        XCTAssertEqual(restored.positionIdentifier, "bottom")
+        XCTAssertNil(AppSettings(languages: languages, defaults: defaults).placement.custom)
+    }
+
+    func testInvalidSavedPlacementFallsBackToLegacyPreset() throws {
+        let suite = "ImmersionCaptionTests.\(UUID().uuidString)"
+        let defaults = try XCTUnwrap(UserDefaults(suiteName: suite))
+        defer { defaults.removePersistentDomain(forName: suite) }
+        defaults.set("middle", forKey: "position")
+        let invalid = SavedOverlayPosition(screenIdentifier: "display", horizontalFraction: 2, verticalFraction: 0)
+        let data = try JSONEncoder().encode(OverlayPlacementPreference(preset: .top, custom: invalid))
+        defaults.set(data, forKey: "overlayPlacement")
+        let settings = AppSettings(languages: languages, defaults: defaults)
+        XCTAssertEqual(settings.placement.preset, .middle)
+        XCTAssertNil(settings.placement.custom)
+        settings.saveCustomPosition(invalid)
+        XCTAssertNil(settings.placement.custom)
+    }
+
 }

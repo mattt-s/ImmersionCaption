@@ -10,19 +10,29 @@ struct SubtitleView: View {
 
     var body: some View {
         VStack {
-            if settings.position != .top { Spacer(minLength: 0) }
             VStack(alignment: .leading, spacing: 10) {
-                if !settings.clickThrough {
+                if !settings.overlayIsClickThrough {
                     HStack {
-                        Text("Live captions").font(.caption.weight(.semibold))
+                        if settings.isOverlayLocked {
+                            Text("Live captions").font(.caption.weight(.semibold))
+                        } else {
+                            OverlayDragHandle()
+                                .overlay {
+                                    Label("Drag to move", systemImage: "hand.draw")
+                                        .font(.caption).allowsHitTesting(false)
+                                }
+                                .frame(maxWidth: .infinity)
+                                .help("Drag here to reposition captions")
+                        }
                         Spacer()
                         Toggle("Follow live", isOn: $followsLive)
                             .toggleStyle(.switch).controlSize(.mini).font(.caption)
                     }
+                    .frame(height: 22)
                     .foregroundStyle(.white.opacity(0.85))
                 }
                 ScrollViewReader { reader in
-                    ScrollView(.vertical, showsIndicators: !settings.clickThrough) {
+                    ScrollView(.vertical, showsIndicators: !settings.overlayIsClickThrough) {
                         VStack(alignment: .leading, spacing: 12) {
                             if session.displayCaptions.isEmpty {
                                 Text("Live captions appear here.")
@@ -40,9 +50,9 @@ struct SubtitleView: View {
                     .frame(height: min(260, settings.fontSize * 5))
                     .onAppear { reader.scrollTo(bottomAnchor, anchor: .bottom) }
                     .onChange(of: session.displayCaptions) { _, _ in
-                        if settings.clickThrough || followsLive { reader.scrollTo(bottomAnchor, anchor: .bottom) }
+                        if settings.overlayIsClickThrough || followsLive { reader.scrollTo(bottomAnchor, anchor: .bottom) }
                     }
-                    .onChange(of: settings.clickThrough) { _, enabled in
+                    .onChange(of: settings.overlayIsClickThrough) { _, enabled in
                         if enabled {
                             followsLive = true
                             reader.scrollTo(bottomAnchor, anchor: .bottom)
@@ -52,14 +62,14 @@ struct SubtitleView: View {
                         if follow { reader.scrollTo(bottomAnchor, anchor: .bottom) }
                     }
                     .onChange(of: settings.fontSize) { _, _ in
-                        if settings.clickThrough || followsLive { reader.scrollTo(bottomAnchor, anchor: .bottom) }
+                        if settings.overlayIsClickThrough || followsLive { reader.scrollTo(bottomAnchor, anchor: .bottom) }
                     }
                 }
             }
+            .padding(.trailing, 32)
             .padding(.horizontal, 24).padding(.vertical, 16)
             .background(.black.opacity(settings.opacity), in: RoundedRectangle(cornerRadius: 14))
             .padding(.horizontal, 8)
-            if settings.position != .bottom { Spacer(minLength: 0) }
         }
         .padding(.vertical, 8)
         .frame(maxWidth: .infinity, maxHeight: .infinity)

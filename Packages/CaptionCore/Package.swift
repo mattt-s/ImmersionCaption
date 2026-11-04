@@ -1,7 +1,7 @@
 // swift-tools-version:5.3
 import PackageDescription
 
-// This Foundation-only package can also be tested with the older tools installed initially.
+// Domain values and native geometry; also supports the original lightweight compatibility checks.
 let package = Package(
     name: "CaptionCore",
     products: [.library(name: "CaptionCore", targets: ["CaptionCore"])],
