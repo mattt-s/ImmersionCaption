@@ -1,16 +1,14 @@
 import Foundation
 
-/// One completed source phrase and its English translation. History is kept in memory.
+/// One committed phrase of recognized speech. History is kept in memory.
 public struct Caption: Identifiable, Equatable, Codable {
     public let id: UUID
-    public let source: String
-    public let translation: String
+    public let text: String
     public let createdAt: Date
 
-    public init(source: String, translation: String, createdAt: Date = Date()) {
+    public init(text: String, createdAt: Date = Date()) {
         self.id = UUID()
-        self.source = source
-        self.translation = translation
+        self.text = text
         self.createdAt = createdAt
     }
 }

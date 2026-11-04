@@ -37,7 +37,7 @@ final class UtteranceContinuationTests: XCTestCase {
         XCTAssertEqual(segmenter.ingest(revised, isFinal: true, segments: revisedUnits), ["随后休息。"])
     }
 
-    func testFinalUtteranceDoesNotCarryAlreadyTranslatedText() {
+    func testFinalUtteranceDoesNotCarryAlreadyCommittedText() {
         var segmenter = TranscriptSegmenter()
         XCTAssertEqual(segmenter.ingest("谢谢你的帮助", isFinal: true), ["谢谢你的帮助"])
         segmenter.beginUtterance()

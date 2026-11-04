@@ -9,11 +9,11 @@ enum AudioCaptureError: LocalizedError {
     var errorDescription: String? {
         switch self {
         case let .hardware(operation, status):
-            return "System audio capture could not \(operation) (Core Audio \(status)). Allow ImmersionCaption under System Settings → Privacy & Security → Screen & System Audio Recording → System Audio Recording Only, then restart translation. Screen recording and microphone access are not needed."
+            return "System audio capture could not \(operation) (Core Audio \(status)). Allow ImmersionCaption under System Settings → Privacy & Security → Screen & System Audio Recording → System Audio Recording Only, then restart captions. Screen recording and microphone access are not needed."
         case .invalidFormat:
-            return "System audio returned an unsupported or invalid PCM format. Stop and restart translation after checking your audio output device."
+            return "System audio returned an unsupported or invalid PCM format. Stop and restart captions after checking your audio output device."
         case .formatChanged:
-            return "The system audio format changed. Restart translation to use the new audio output format."
+            return "The system audio format changed. Restart captions to use the new audio output format."
         }
     }
 }

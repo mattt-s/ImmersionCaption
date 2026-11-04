@@ -35,9 +35,3 @@ protocol SpeechRecognizing: AnyObject {
     var audioReceiver: (CMSampleBuffer) -> Void { get }
     func stop()
 }
-
-/// An inference backend, independent of HTTP, model names, and the presentation layer.
-@MainActor
-protocol TranslationEngine: AnyObject {
-    func translate(_ input: TranslationInput) async throws -> String
-}

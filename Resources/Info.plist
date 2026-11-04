@@ -8,8 +8,8 @@
     <key>CFBundleDisplayName</key><string>ImmersionCaption</string>
     <key>CFBundleIconFile</key><string>AppIcon.icns</string>
     <key>CFBundlePackageType</key><string>APPL</string>
-    <key>CFBundleShortVersionString</key><string>0.4.0</string>
-    <key>CFBundleVersion</key><string>5</string>
+    <key>CFBundleShortVersionString</key><string>0.5.0</string>
+    <key>CFBundleVersion</key><string>6</string>
     <key>LSMinimumSystemVersion</key><string>14.2</string>
     <key>LSApplicationCategoryType</key><string>public.app-category.education</string>
     <key>NSHighResolutionCapable</key><true/>
@@ -17,6 +17,6 @@
     <key>NSSpeechRecognitionUsageDescription</key>
     <string>ImmersionCaption recognizes Mandarin in application audio using an on-device model. It never uses your microphone or cloud recognition.</string>
     <key>NSAudioCaptureUsageDescription</key>
-    <string>ImmersionCaption captures sound played by applications to recognize Mandarin and translate it into English subtitles locally. It never captures your screen or microphone, and does not save audio.</string>
+    <string>ImmersionCaption captures sound played by applications to display recognized Mandarin as local subtitles. It never captures your screen or microphone, and does not save audio.</string>
 </dict>
 </plist>

@@ -5,21 +5,39 @@ import CaptionCore
 
 @MainActor
 final class CaptionSessionTests: XCTestCase {
-    func testPauseDropsPendingAndRejectsLateTranslation() async throws {
+    func testPunctuatedPartialPublishesRecognizedTextImmediately() async {
+        let speech = FakeSpeech()
+        let session = CaptionSession(capture: FakeCapture(), speech: speech)
+        await session.start()
+        speech.emit("老板见有了巴结的机会，立刻答应帮忙。")
+        XCTAssertEqual(session.currentCaption?.text, "老板见有了巴结的机会，立刻答应帮忙。")
+        XCTAssertEqual(session.history.map(\.text), ["老板见有了巴结的机会，立刻答应帮忙。"])
+        XCTAssertEqual(session.sourceDraft, "老板见有了巴结的机会，立刻答应帮忙。")
+        await session.stop()
+    }
+
+    func testAllPhrasesInOneEventEnterHistoryWithoutQueueDrops() async {
+        let speech = FakeSpeech()
+        let session = CaptionSession(capture: FakeCapture(), speech: speech)
+        await session.start()
+        speech.emit("一。二。三。四。五。六。")
+        XCTAssertEqual(session.history.map(\.text), ["一。", "二。", "三。", "四。", "五。", "六。"])
+        XCTAssertEqual(session.currentCaption?.text, "六。")
+        await session.stop()
+    }
+
+    func testPauseHidesCaptionAndRejectsLateRecognition() async {
         let capture = FakeCapture()
         let speech = FakeSpeech()
-        let engine = HeldTranslator()
-        let session = CaptionSession(capture: capture, speech: speech, translator: engine)
+        let session = CaptionSession(capture: capture, speech: speech)
         await session.start()
-        XCTAssertEqual(session.state, .running)
-        speech.emit("第一句。第二句。")
-        await waitUntil { engine.requests.count == 1 }
+        speech.emit("第一句。")
+        let oldCallback = speech.callback
         await session.pause()
-        engine.complete("Late result")
-        await Task.yield()
+        oldCallback?(TranscriptEvent(utteranceID: speech.utteranceID, text: "过期结果。", isFinal: true))
         XCTAssertNil(session.currentCaption)
-        XCTAssertTrue(session.history.isEmpty)
-        XCTAssertEqual(session.pendingPhrases, 0)
+        XCTAssertEqual(session.sourceDraft, "")
+        XCTAssertEqual(session.history.map(\.text), ["第一句。"])
         XCTAssertEqual(session.state, .paused)
         XCTAssertGreaterThan(capture.stopCount, 0)
     }
@@ -28,7 +46,7 @@ final class CaptionSessionTests: XCTestCase {
         let capture = FakeCapture()
         let speech = FakeSpeech()
         speech.holdStartup = true
-        let session = CaptionSession(capture: capture, speech: speech, translator: HeldTranslator())
+        let session = CaptionSession(capture: capture, speech: speech)
         let startup = Task { await session.start() }
         await waitUntil { speech.startup != nil }
         await session.stop()
@@ -39,41 +57,25 @@ final class CaptionSessionTests: XCTestCase {
         XCTAssertFalse(session.isTransitioning)
     }
 
-    func testOverloadDropsOldestPendingPhrase() async {
-        let speech = FakeSpeech()
-        let engine = HeldTranslator()
-        let session = CaptionSession(capture: FakeCapture(), speech: speech, translator: engine)
-        await session.start()
-        speech.emit("一。")
-        await waitUntil { engine.requests.count == 1 }
-        speech.emit("一。二。三。四。五。")
-        XCTAssertEqual(session.droppedPhrases, 1)
-        engine.complete("One.")
-        await waitUntil { engine.requests.count == 2 }
-        XCTAssertEqual(engine.requests[1].source, "三。")
-        XCTAssertEqual(engine.requests[1].context.first?.translation, "One.")
-        await session.stop()
-        engine.complete("Three.")
-    }
-
     func testRestartRejectsOldRecognizerEvents() async {
         let speech = FakeSpeech()
-        let engine = HeldTranslator()
-        let session = CaptionSession(capture: FakeCapture(), speech: speech, translator: engine)
+        let session = CaptionSession(capture: FakeCapture(), speech: speech)
         await session.start()
         let oldCallback = speech.callback
         await session.pause()
         await session.start()
         oldCallback?(TranscriptEvent(utteranceID: UUID(), text: "过期。", isFinal: true))
-        await Task.yield()
-        XCTAssertTrue(engine.requests.isEmpty)
+        XCTAssertTrue(session.history.isEmpty)
+        XCTAssertNil(session.currentCaption)
+        speech.emit("新的字幕。")
+        XCTAssertEqual(session.currentCaption?.text, "新的字幕。")
         await session.stop()
     }
 
     func testRecognitionFailureStopsBothAdapters() async {
         let speech = FakeSpeech()
         let capture = FakeCapture()
-        let session = CaptionSession(capture: capture, speech: speech, translator: HeldTranslator())
+        let session = CaptionSession(capture: capture, speech: speech)
         await session.start()
         speech.failure?(SpeechError.localModelUnavailable)
         await waitUntil { session.state == .failed && !session.isTransitioning }
@@ -86,7 +88,7 @@ final class CaptionSessionTests: XCTestCase {
         let capture = FakeCapture()
         capture.holdStartup = true
         let speech = FakeSpeech()
-        let session = CaptionSession(capture: capture, speech: speech, translator: HeldTranslator())
+        let session = CaptionSession(capture: capture, speech: speech)
         let startup = Task { await session.start() }
         await waitUntil { capture.startup != nil }
         await session.stop()
@@ -100,7 +102,7 @@ final class CaptionSessionTests: XCTestCase {
     func testFailureCompletingAfterExplicitStopDoesNotResurfaceError() async {
         let capture = FakeCapture()
         let speech = FakeSpeech()
-        let session = CaptionSession(capture: capture, speech: speech, translator: HeldTranslator())
+        let session = CaptionSession(capture: capture, speech: speech)
         await session.start()
         capture.holdNextStop = true
         speech.failure?(SpeechError.localModelUnavailable)
@@ -112,97 +114,91 @@ final class CaptionSessionTests: XCTestCase {
         XCTAssertNil(session.errorMessage)
     }
 
-    func testStableUnpunctuatedPartialIsNotSentToTranslation() async throws {
+    func testUnpunctuatedPartialStillWaitsForBoundary() async throws {
         let speech = FakeSpeech()
-        let engine = HeldTranslator()
-        let session = CaptionSession(capture: FakeCapture(), speech: speech, translator: engine)
+        let session = CaptionSession(capture: FakeCapture(), speech: speech)
         await session.start()
         let partial = String(repeating: "今天我们聊一聊学习英语的方法", count: 5)
         speech.emit(partial)
-        // Exceed the removed 650 ms timeout; text must still wait for punctuation.
+        // Protect the existing punctuation policy against reintroducing a draft timer.
         try await Task.sleep(nanoseconds: 800_000_000)
-        XCTAssertTrue(engine.requests.isEmpty)
+        XCTAssertTrue(session.history.isEmpty)
+        XCTAssertNil(session.currentCaption)
         speech.emit(partial + "。")
-        await waitUntil { engine.requests.count == 1 }
-        XCTAssertEqual(engine.requests.first?.source, partial + "。")
+        XCTAssertEqual(session.currentCaption?.text, partial + "。")
         await session.stop()
-        engine.complete("A complete sentence.")
     }
 
     func testRequestRotationCarriesUnfinishedTextIntoNextRequest() async {
         let speech = FakeSpeech()
-        let engine = HeldTranslator()
-        let session = CaptionSession(capture: FakeCapture(), speech: speech, translator: engine)
+        let session = CaptionSession(capture: FakeCapture(), speech: speech)
         await session.start()
         speech.emit("今天我们决定")
         speech.utteranceID = UUID()
         speech.emit("等大家准备好以后再出发。")
-        await waitUntil { engine.requests.count == 1 }
-        XCTAssertEqual(engine.requests.first?.source, "今天我们决定等大家准备好以后再出发。")
+        XCTAssertEqual(session.currentCaption?.text, "今天我们决定等大家准备好以后再出发。")
         await session.stop()
-        engine.complete("We'll leave once everyone is ready.")
     }
 
     func testPauseDiscardsUnfinishedCarry() async {
         let speech = FakeSpeech()
-        let engine = HeldTranslator()
-        let session = CaptionSession(capture: FakeCapture(), speech: speech, translator: engine)
+        let session = CaptionSession(capture: FakeCapture(), speech: speech)
         await session.start()
         speech.emit("这段没有说完的内容")
         await session.pause()
         await session.start()
         speech.emit("这是一段新的内容。")
-        await waitUntil { engine.requests.count == 1 }
-        XCTAssertEqual(engine.requests.first?.source, "这是一段新的内容。")
+        XCTAssertEqual(session.history.map(\.text), ["这是一段新的内容。"])
         await session.stop()
-        engine.complete("New content.")
     }
 
-    func testActualFinalResultTranslatesUnpunctuatedUtterance() async {
+    func testActualFinalPublishesUnpunctuatedUtterance() async {
         let speech = FakeSpeech()
-        let engine = HeldTranslator()
-        let session = CaptionSession(capture: FakeCapture(), speech: speech, translator: engine)
+        let session = CaptionSession(capture: FakeCapture(), speech: speech)
         await session.start()
         speech.callback?(TranscriptEvent(utteranceID: speech.utteranceID, text: "谢谢你今天过来帮忙", isFinal: true))
-        await waitUntil { engine.requests.count == 1 }
-        XCTAssertEqual(engine.requests.first?.source, "谢谢你今天过来帮忙")
+        XCTAssertEqual(session.currentCaption?.text, "谢谢你今天过来帮忙")
         await session.stop()
-        engine.complete("Thanks for coming to help today.")
     }
 
-    func testManualTranslationDoesNotTruncateInputAtFiveHundredCharacters() async {
-        let engine = HeldTranslator()
-        let session = CaptionSession(capture: FakeCapture(), speech: FakeSpeech(), translator: engine)
-        let source = String(repeating: "这是一段需要完整翻译的内容", count: 50) + "。"
-        XCTAssertGreaterThan(source.count, 500)
-        session.translateSample(source)
-        await waitUntil { engine.requests.count == 1 }
-        XCTAssertEqual(engine.requests.first?.source, source)
-        await session.stop()
-        engine.complete("A full translation.")
-    }
-
-    func testRevisedZeroTimedTranscriptDoesNotEnqueueOldClausesAgain() async {
+    func testRevisedZeroTimedTranscriptDoesNotReplayOldClauses() async {
         let speech = FakeSpeech()
-        let engine = HeldTranslator()
-        let session = CaptionSession(capture: FakeCapture(), speech: speech, translator: engine)
+        let session = CaptionSession(capture: FakeCapture(), speech: speech)
         await session.start()
         let original = "他笑着说马上就去安排，大家发现他今天特别高兴，老板也看到了表现的机会，"
         func zeroTiming(_ text: String) -> [SpeechSegment] {
             [SpeechSegment(range: NSRange(location: 0, length: text.utf16.count), startTime: 0, duration: 0)]
         }
         speech.emit(original, segments: zeroTiming(original))
-        await waitUntil { engine.requests.count == 1 }
-        let pendingBefore = session.pendingPhrases
+        let previous = session.history
         let revised = "他笑着说马上就去安排，大家发现他今天特别高兴还一直哼着歌，老板也看到了表现的机会，"
         speech.emit(revised, segments: zeroTiming(revised))
-        XCTAssertEqual(session.pendingPhrases, pendingBefore)
-        XCTAssertEqual(session.droppedPhrases, 0)
-        engine.complete("He said he'd arrange it right away.")
-        await waitUntil { engine.requests.count == 2 }
-        XCTAssertEqual(engine.requests[1].source, "大家发现他今天特别高兴，")
+        XCTAssertEqual(session.history, previous)
         await session.stop()
-        engine.complete("They noticed he was in a good mood.")
+    }
+
+    func testHistoryRetainsLatestThreeHundredPhrases() async {
+        let speech = FakeSpeech()
+        let session = CaptionSession(capture: FakeCapture(), speech: speech)
+        await session.start()
+        speech.emit((1...350).map { "第\($0)句话。" }.joined())
+        XCTAssertEqual(session.history.count, 300)
+        XCTAssertEqual(session.history.first?.text, "第51句话。")
+        XCTAssertEqual(session.history.last?.text, "第350句话。")
+        XCTAssertEqual(session.currentCaption?.text, "第350句话。")
+        await session.stop()
+    }
+
+    func testClearHistoryPreservesCurrentDisplay() async {
+        let speech = FakeSpeech()
+        let session = CaptionSession(capture: FakeCapture(), speech: speech)
+        await session.start()
+        speech.emit("当前字幕。")
+        let caption = session.currentCaption
+        session.clearHistory()
+        XCTAssertTrue(session.history.isEmpty)
+        XCTAssertEqual(session.currentCaption, caption)
+        await session.stop()
     }
 
     private func waitUntil(_ predicate: () -> Bool, file: StaticString = #filePath, line: UInt = #line) async {
@@ -252,15 +248,4 @@ private final class FakeSpeech: SpeechRecognizing {
     func emit(_ text: String, segments: [SpeechSegment] = []) {
         callback?(TranscriptEvent(utteranceID: utteranceID, text: text, isFinal: false, segments: segments))
     }
-}
-
-@MainActor
-private final class HeldTranslator: TranslationEngine {
-    var requests: [TranslationInput] = []
-    var pending: [CheckedContinuation<String, Error>] = []
-    func translate(_ input: TranslationInput) async throws -> String {
-        requests.append(input)
-        return try await withCheckedThrowingContinuation { pending.append($0) }
-    }
-    func complete(_ translation: String) { pending.removeFirst().resume(returning: translation) }
 }

@@ -11,6 +11,6 @@ final class AppContainerTests: XCTestCase {
         XCTAssertNil(container.overlay, "Creating a hosting view during StateObject resolution crashes SwiftUI startup.")
         XCTAssertEqual(NSApplication.shared.windows.count, windowsBefore)
         XCTAssertEqual(container.session.state, .stopped)
-        XCTAssertFalse(container.session.isTranslating)
+        XCTAssertNil(container.session.currentCaption)
     }
 }

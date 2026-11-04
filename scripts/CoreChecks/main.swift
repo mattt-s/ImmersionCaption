@@ -20,22 +20,10 @@ segmenter.reset()
 check(segmenter.ingest(String(repeating: "好", count: 18), isFinal: true).map { $0.count } == [18], "unpunctuated utterance remains intact")
 segmenter.reset()
 check(segmenter.ingest("？！你好！", isFinal: true) == ["你好！"], "ignore empty punctuation")
-var queue = BoundedQueue<Int>(capacity: 2)
-[1, 2, 3].forEach { queue.append($0) }
-check(queue.droppedCount == 1, "overload accounting")
-check(queue.popFirst() == 2 && queue.popFirst() == 3 && queue.popFirst() == nil, "FIFO after dropping oldest")
-queue.removeAll()
-check(queue.droppedCount == 0 && queue.count == 0, "queue reset")
-for address in ["http://127.0.0.1:11434", "http://localhost:11434/", "http://[::1]:11434"] {
-    check((try? LocalEndpoint.validate(address)) != nil, "accept loopback \(address)")
-}
-for address in ["http://example.com", "http://192.168.1.2", "http://localhost.example.com", "http://user@localhost", "http://localhost/proxy", "http://localhost?remote=1", "http://localhost#x"] {
-    check((try? LocalEndpoint.validate(address)) == nil, "reject remote or ambiguous endpoint")
-}
-let context = (1...4).map { Caption(source: "源\($0)", translation: "English \($0)") }
-let prompt = TranslationPrompt.make(for: TranslationInput(source: "别着急", context: context))
-check(prompt.hasSuffix("\n\n\n别着急"), "TranslateGemma separator")
-check(prompt.contains("English 4") && !prompt.contains("English 2"), "bounded context")
-check(prompt.contains("natural, idiomatic") && prompt.contains("Do not add facts"), "translation quality policy")
+let caption = Caption(text: "你好。")
+check(caption.text == "你好。", "recognized caption text")
+let encoded = try JSONEncoder().encode(caption)
+let decoded = try JSONDecoder().decode(Caption.self, from: encoded)
+check(decoded == caption, "caption round trip")
 check(SessionState.paused.canStart && !SessionState.running.canStart, "session start policy")
 print("Passed \(checks) production domain checks.")

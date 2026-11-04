@@ -10,7 +10,7 @@ struct MenuBarView: View {
         if session.state == .running {
             Button("Pause") { Task { await session.pause() } }
         } else {
-            Button(session.state == .paused ? "Resume" : "Start translating") { Task { await session.start() } }
+            Button(session.state == .paused ? "Resume" : "Start captions") { Task { await session.start() } }
                 .disabled(!session.state.canStart || session.isTransitioning)
         }
         Button("Stop") { Task { await session.stop() } }

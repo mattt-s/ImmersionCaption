@@ -2,36 +2,28 @@
 
 ## Product and privacy
 
-- Build a native macOS application for Mandarin system-audio captions translated into idiomatic English.
-- Capture application output with Core Audio process taps and `NSAudioCaptureUsageDescription`; do not introduce ScreenCaptureKit, screen permission requests, or a microphone input. Keep tap/aggregate private, playback unmuted, and default devices unchanged. Copy HAL callback buffers before returning; synchronize stop with delivery and clean up partial startup.
-- Never capture the microphone. Never silently use cloud recognition or remote translation.
-- Require on-device speech recognition. Ollama connections must remain loopback-only.
-- Do not log audio, transcripts, translations, or request bodies. History is memory-only unless the user explicitly exports it.
-- Keep subtitle text faithful to meaning, tone, and intent; do not invent facts or teach vocabulary inside translations.
+- Build a native macOS app displaying recognized Mandarin application audio as floating captions. Translation is removed; do not reintroduce inference services, prompts, bilingual UI, or backend preferences without an explicit request.
+- Capture output with Core Audio process taps and NSAudioCaptureUsageDescription. No ScreenCaptureKit, screen permission requests, or microphone input. Keep tap/aggregate private, playback unmuted, and default devices unchanged.
+- Require on-device recognition without cloud fallback. Do not log audio/transcripts. History is memory-only unless explicitly exported.
 
 ## Architecture and Swift
 
-- Swift 5.9+; macOS 14.2+. Use structured concurrency and isolate presentation/session state to MainActor.
-- Keep domain policy in Packages/CaptionCore, orchestration and ports in Application, native adapters in Infrastructure, UI in Presentation. Wire dependencies only in App/AppContainer.swift.
-- Keep AI providers behind SpeechRecognizing and TranslationEngine. No Ollama DTOs or Apple recognition types in domain models.
-- Prefer small focused types, explicit injected dependencies, and descriptive names. Avoid speculative abstraction.
-- Add documentation comments for protocols, public APIs, and nontrivial behavior. Explain ownership and synchronization at concurrency boundaries.
-- Cancel tasks and invalidate session generations on pause, stop, or error. Never publish stale results.
-- Bound live queues and history. Surface dropped work rather than allowing unbounded latency.
-- Preserve meaningful translation inputs. Prefer a complete available sentence over commas. A comma/colon/semicolon may delimit a partial clause after a minimum ten characters; never cut solely by character count, word timing, duration, pause, or unchanged-text timeout. A genuine final recognition result may finish an unpunctuated utterance. Maintenance rotations must not fabricate final results: carry uncommitted text and reset/offset request timing ranges. Keep display wrapping/scaling separate from translation segmentation. Test long inputs, sentence priority, partial punctuation, continuation, and pause/stop cleanup.
-- All-zero word timestamps are unavailable timing, not an audio watermark; use timing/text anchors to align revisions without replaying consumed clauses or swallowing appended speech. Preserve valid UTF-16 offsets and emoji through request continuation. Never globally suppress matching strings: a speaker can legitimately repeat a phrase.
-- Keep Resources/Artwork/AppIcon.png as the icon build source. Generate native sizes with scripts/build-icon.sh and include the ICNS before signing; document a replacement asset's provenance/prompt.
+- Swift 5.9+, macOS 14.2+. Use structured concurrency and MainActor presentation/session state.
+- Domain rules in Packages/CaptionCore; orchestration/ports in Application; adapters in Infrastructure; UI in Presentation. Select providers only in App/AppContainer.swift.
+- Keep recognition behind SpeechRecognizing and capture behind SystemAudioCapturing. No Apple recognition types in domain models. Caption contains recognized text only.
+- Prefer focused types/injected dependencies; document nontrivial APIs and ownership/synchronization. Avoid unused abstractions/dependencies.
+- Publish phrases directly; cap history at 300. Invalidate session generations and cancel expiry on pause/stop/failure. Never publish stale callbacks.
+- Preserve sentence-first punctuation. In a partial with no sentence ending, comma/colon/semicolon can delimit a clause at character position ten or later. Never force cuts by maximum length, duration, timing gap, pause, or unchanged-text timeout. Real finals may flush the tail; maintenance must not fabricate finality.
+- Carry unfinished text and reset/offset timing ranges across request IDs. All-zero timings are unavailable, not an audio watermark. Use timing/text anchors; preserve UTF-16/emoji and legitimate repeated speech.
+- There is no precommit stability confirmation. Do not call revision alignment stabilization or promise retroactive correction.
+- Copy HAL buffers before returning; synchronize stop/delivery and clean up partial startup. Defer overlay NSHostingView creation until view startup, never during AppContainer initialization.
+- Keep Resources/Artwork/AppIcon.png as icon source; package native sizes before signing and preserve provenance.
 
 ## Verification and delivery
 
-- Run `swift test --package-path Packages/CaptionCore` for business rules; run `swift test` and `scripts/build-app.sh` with modern Xcode tools for adapter/app checks.
-- With local Ollama and translategemma:4b available, opt into the real adapter check using `IMMERSIONCAPTION_LIVE_TEST=1 swift test --filter LocalTranslationIntegrationTests`.
-- After changing startup or overlay ownership, run `scripts/check-app-launch.sh` against the built bundle. It checks process/window metadata and leaves the app open; it does not grant permissions or validate live capture.
-- Do not construct the overlay's NSHostingView inside AppContainer initialization: SwiftUI resolves the StateObject during its own graph update. Defer presentation to the view task to avoid a startup precondition failure.
-- Do not claim that source parsing or core tests prove the macOS app compiles or captures audio.
-- Test lifecycle races, segmentation, loopback enforcement, request/response contracts, cancellation, and overload behavior when changing them.
-- Verify actual system-audio-only and Speech permission flows, Mandarin model availability, overlay behavior across Spaces, and translation quality on a Mac before release.
-- Maintain README.md, ARCHITECTURE.md, and docs/VALIDATION.md with implementation changes. Distinguish implemented, verified, and planned features.
-- Keep docs/diagrams/architecture.mmd and its SVG/PNG exports in sync when changing the architecture; regeneration instructions are in docs/diagrams/README.md. Gray planned components must not be presented as implemented.
-- Use Git, preserve user work, keep generated bundles, models, and personal history out of commits. Do not add external dependencies without a concrete need.
-- Standalone embedded inference, direct model management, notarization, and distribution remain planned; do not imply they are implemented.
+- For runtime changes run swift test --package-path Packages/CaptionCore, swift test, and scripts/build-app.sh. Foundation-only fallback: scripts/test-core-compat.sh.
+- For startup/overlay changes run scripts/check-app-launch.sh. It leaves the app open and checks process/window metadata, not live audio or permissions.
+- Test lifecycle races, publication/history, segmentation/revisions, request carry, and PCM ownership where changed. Manually verify permissions, Mandarin assets, sustained audio, output devices, and Spaces/fullscreen before release.
+- Keep README.md, ARCHITECTURE.md, docs/CAPTION_POLICY.md, docs/VALIDATION.md, and editable/rendered diagrams consistent. Regeneration instructions: docs/diagrams/README.md. Distinguish implemented, tested, and planned features.
+- Use Git, preserve user work, and keep generated bundles, models, logs, and personal history out of commits. Removing an integration must not delete external apps or their model files.
+- Direct speech-model management, alternative embedded engines, distribution signing, and notarization remain planned.

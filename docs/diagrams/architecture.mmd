@@ -1,57 +1,38 @@
 flowchart LR
-    accTitle: ImmersionCaption component architecture
-    accDescr: AppContainer assembles native presentation, a caption session, domain policies, and replaceable local providers. Current adapters connect to macOS frameworks and local Ollama. Embedded inference and direct model management are planned.
-
-    subgraph App["ImmersionCaption.app · composition root: AppContainer"]
-        subgraph Presentation["Presentation · MainActor"]
-            Views["SwiftUI views<br/>MainView · MenuBarView<br/>Controls · Settings · History"]
-            Overlay["Floating subtitles<br/>SubtitleOverlayController<br/>NSPanel + SubtitleView"]
-        end
-
-        Session["CaptionSession · MainActor<br/>Lifecycle · cancellation · punctuation<br/>Queue · context · in-memory history"]
-        Settings["AppSettings<br/>Appearance + backend preferences"]
-        Core["CaptionCore · local Foundation package<br/>Caption · TranslationInput · SessionState<br/>SpeechSegment · TranscriptCursor<br/>TranscriptSegmenter · BoundedQueue<br/>TranslationPrompt · LocalEndpoint"]
-
-        subgraph Providers["Application ports → current infrastructure adapters"]
-            Capture["SystemAudioCapturing<br/>↓ CoreAudioTapCapture<br/>System audio only · dedicated queue"]
-            Speech["SpeechRecognizing<br/>↓ AppleSpeechRecognizer<br/>On-device Mandarin required"]
-            Translation["TranslationEngine<br/>↓ OllamaTranslationEngine<br/>TranslateGemma request / response"]
-        end
-
-        subgraph Future["Planned · standalone deployment"]
-            Embedded["Embedded inference adapter<br/>Same TranslationEngine interface<br/>App-managed local model files"]
-        end
+    accTitle: ImmersionCaption caption-only architecture
+    accDescr: A caption session applies domain rules to local Apple speech results and publishes recognized text directly. Core Audio captures system audio only. No inference service or network backend is used.
+    subgraph App["ImmersionCaption.app"]
+        Container["AppContainer<br/>Composition root<br/>Deferred overlay creation"]
+        Views["SwiftUI controls<br/>Settings + history export"]
+        Overlay["Floating overlay<br/>AppKit panel + SwiftUI<br/>Recognized text only"]
+        Session["CaptionSession · MainActor<br/>Lifecycle + direct publication<br/>History: latest 300 captions"]
+        Core["CaptionCore · Foundation<br/>Caption + SessionState<br/>TranscriptSegmenter<br/>TranscriptCursor + SpeechSegment"]
+        Settings["AppSettings<br/>Font + opacity + position"]
+        Capture["SystemAudioCapturing<br/>CoreAudioTapCapture<br/>Owning PCM sample buffers"]
+        Speech["SpeechRecognizing<br/>AppleSpeechRecognizer<br/>Cumulative text + timings"]
     end
-
-    CoreAudio["Core Audio process taps<br/>System Audio Recording permission"]
-    SpeechKit["Speech framework<br/>OS-managed Mandarin model"]
-    Defaults[("UserDefaults<br/>Preferences only")]
-    Ollama["Ollama + translategemma:4b<br/>Separate local process<br/>127.0.0.1:11434"]
-
+    Audio["Core Audio process tap<br/>System Audio Recording permission"]
+    Native["Apple Speech framework<br/>OS-managed local Mandarin assets"]
+    Defaults[("UserDefaults<br/>Appearance preferences")]
+    Container -->|"assembles"| Session
+    Container -->|"defers creation"| Overlay
     Views -->|"controls / observes"| Session
-    Overlay -->|"observes captions"| Session
-    Views -->|"binds preferences"| Settings
-    Overlay -->|"observes appearance"| Settings
-    Session -->|"business rules / values"| Core
-    Session -->|"capture port"| Capture
-    Session -->|"speech port"| Speech
-    Session -->|"translation port"| Translation
-    Translation -->|"prompt / endpoint policy"| Core
-    Capture -->|"native API"| CoreAudio
-    Speech -->|"on-device API"| SpeechKit
-    Translation <-->|"loopback HTTP"| Ollama
-    Settings -->|"stores preferences"| Defaults
-    Translation -. "replace adapter (planned)" .-> Embedded
-
-    classDef presentation fill:#eaf2ff,stroke:#3b67b1,color:#172b4d,stroke-width:1.5px
-    classDef application fill:#e8f5f1,stroke:#23836d,color:#153e35,stroke-width:1.5px
-    classDef domain fill:#f2ecfc,stroke:#815bb3,color:#382254,stroke-width:1.5px
-    classDef adapter fill:#fff4df,stroke:#b9822d,color:#513b16,stroke-width:1.5px
-    classDef service fill:#f2f5f8,stroke:#73869a,color:#26384a,stroke-width:1.5px
-    classDef planned fill:#fbfbfc,stroke:#8c8c9e,color:#626275,stroke-dasharray:6 4
+    Overlay -->|"observes text"| Session
+    Views -->|"binds"| Settings
+    Overlay -->|"appearance"| Settings
+    Settings --> Defaults
+    Session -->|"domain rules"| Core
+    Session -->|"starts / stops"| Capture
+    Session -->|"starts / stops"| Speech
+    Capture -->|"native API"| Audio
+    Capture -->|"system audio"| Speech
+    Speech -->|"on-device API"| Native
+    Speech -->|"recognized events"| Session
+    classDef application fill:#e8f5f1,stroke:#23836d,color:#153e35
+    classDef presentation fill:#eaf2ff,stroke:#3b67b1,color:#172b4d
+    classDef domain fill:#f2ecfc,stroke:#815bb3,color:#382254
+    classDef adapter fill:#fff4df,stroke:#b9822d,color:#513b16
+    class Session,Container application
     class Views,Overlay presentation
-    class Session application
     class Core domain
-    class Capture,Speech,Translation,Settings adapter
-    class CoreAudio,SpeechKit,Defaults,Ollama service
-    class Embedded planned
+    class Settings,Capture,Speech adapter

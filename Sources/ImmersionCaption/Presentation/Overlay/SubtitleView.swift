@@ -8,20 +8,12 @@ struct SubtitleView: View {
         VStack {
             if settings.position != .top { Spacer(minLength: 0) }
             VStack(spacing: 10) {
-                Text(session.currentCaption?.translation ?? "Make English part of your everyday life.")
+                Text(session.currentCaption?.text ?? "这里显示应用音频的实时字幕。")
                     .font(.system(size: settings.fontSize, weight: .semibold))
                     .foregroundStyle(.white)
                     .lineLimit(6)
                     .minimumScaleFactor(0.6)
                     .fixedSize(horizontal: false, vertical: true)
-                if settings.bilingual {
-                    Text(session.currentCaption?.source ?? "让英语融入你的日常生活。")
-                        .font(.system(size: settings.fontSize * 0.68))
-                        .foregroundStyle(.white.opacity(0.8))
-                        .lineLimit(3)
-                        .minimumScaleFactor(0.7)
-                        .fixedSize(horizontal: false, vertical: true)
-                }
             }
             .multilineTextAlignment(.center)
             .padding(.horizontal, 24)

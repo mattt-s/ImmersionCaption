@@ -6,7 +6,7 @@ struct SettingsView: View {
     var body: some View {
         Form {
             Section("Subtitles") {
-                Text("Translations follow sentence and clause punctuation. Unfinished speech waits for a boundary or a final recognition result.")
+                Text("Captions follow sentence and clause punctuation. Unfinished speech waits for a boundary or a final recognition result.")
                     .font(.caption).foregroundStyle(.secondary)
                 HStack {
                     Text("Font size")
@@ -21,14 +21,7 @@ struct SettingsView: View {
                 Picker("Position", selection: $settings.position) {
                     ForEach(SubtitlePosition.allCases) { Text($0.title).tag($0) }
                 }
-                Toggle("Show Chinese alongside English", isOn: $settings.bilingual)
                 Toggle("Preview subtitle overlay", isOn: $settings.previewOverlay)
-            }
-            Section("Local translation") {
-                TextField("Ollama address", text: $settings.endpoint)
-                TextField("Model", text: $settings.model)
-                Text("Default: translategemma:4b. Only local addresses are accepted. Changes apply to the next translation.")
-                    .font(.caption).foregroundStyle(.secondary)
             }
         }
         .formStyle(.grouped)

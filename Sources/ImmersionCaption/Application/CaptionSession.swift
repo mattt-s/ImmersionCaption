@@ -3,39 +3,30 @@ import Combine
 import CaptionCore
 import OSLog
 
-/// Owns one capture → recognition → translation session and rejects results from old generations.
+/// Owns system-audio captions and rejects recognition callbacks from old sessions.
 @MainActor
 final class CaptionSession: ObservableObject {
     @Published private(set) var state: SessionState = .stopped
     @Published private(set) var currentCaption: Caption?
     @Published private(set) var history: [Caption] = []
     @Published private(set) var errorMessage: String?
-    @Published private(set) var droppedPhrases = 0
-    @Published private(set) var pendingPhrases = 0
     @Published private(set) var sourceDraft = ""
-    @Published private(set) var isTranslating = false
     @Published private(set) var isTransitioning = false
 
     private let capture: SystemAudioCapturing
     private let speech: SpeechRecognizing
-    private let translator: TranslationEngine
     private let logger = Logger(subsystem: "app.ImmersionCaption", category: "Session")
     private var generation = UUID()
     private var segmenter = TranscriptSegmenter()
     private var utteranceID: UUID?
-    private var queue = BoundedQueue<String>(capacity: 3)
-    private var context: [Caption] = []
-    private var worker: Task<Void, Never>?
     private var expiration: Task<Void, Never>?
     private var transitions = 0 {
         didSet { isTransitioning = transitions > 0 }
     }
 
-    init(capture: SystemAudioCapturing, speech: SpeechRecognizing,
-         translator: TranslationEngine) {
+    init(capture: SystemAudioCapturing, speech: SpeechRecognizing) {
         self.capture = capture
         self.speech = speech
-        self.translator = translator
     }
 
     /// Startup is serialized with teardown so a late permission response cannot revive a stopped session.
@@ -70,16 +61,7 @@ final class CaptionSession: ObservableObject {
     func pause() async { await end(as: .paused) }
     func stop() async { await end(as: .stopped) }
 
-    /// Allows users to verify the local model and translation quality without audio permission.
-    func translateSample(_ text: String) {
-        guard state == .stopped || state == .failed, !isTransitioning else { return }
-        let source = text.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !source.isEmpty, worker == nil else { return }
-        errorMessage = nil
-        enqueue([source])
-    }
-
-    func clearHistory() { history.removeAll(); context.removeAll() }
+    func clearHistory() { history.removeAll() }
 
     @discardableResult
     private func end(as nextState: SessionState) async -> UUID {
@@ -105,17 +87,11 @@ final class CaptionSession: ObservableObject {
 
     private func invalidateWork() {
         generation = UUID()
-        worker?.cancel(); worker = nil
         expiration?.cancel(); expiration = nil
         segmenter.reset()
         utteranceID = nil
         sourceDraft = ""
         currentCaption = nil
-        context.removeAll()
-        queue.removeAll()
-        droppedPhrases = 0
-        pendingPhrases = 0
-        isTranslating = false
     }
 
     private func receive(_ event: TranscriptEvent) {
@@ -125,40 +101,19 @@ final class CaptionSession: ObservableObject {
             utteranceID = event.utteranceID
         }
         sourceDraft = event.text
-        enqueue(segmenter.ingest(event.text, isFinal: event.isFinal, segments: event.segments))
+        let phrases = segmenter.ingest(event.text, isFinal: event.isFinal, segments: event.segments)
+        publish(phrases)
     }
 
-    private func enqueue(_ phrases: [String]) {
+    /// Publishes committed speech directly; every phrase enters history without a work queue.
+    private func publish(_ phrases: [String]) {
         guard !phrases.isEmpty else { return }
-        phrases.forEach { queue.append($0) }
-        droppedPhrases = queue.droppedCount
-        pendingPhrases = queue.count
-        guard worker == nil else { return }
-        let token = generation
-        worker = Task { [weak self] in
-            guard let self else { return }
-            while !Task.isCancelled, self.generation == token, let source = self.queue.popFirst() {
-                self.pendingPhrases = self.queue.count
-                self.isTranslating = true
-                do {
-                    let translated = try await self.translator.translate(TranslationInput(source: source, context: self.context))
-                    guard !Task.isCancelled, self.generation == token else { return }
-                    let caption = Caption(source: source, translation: translated)
-                    self.currentCaption = caption
-                    self.history.append(caption)
-                    if self.history.count > 300 { self.history.removeFirst(self.history.count - 300) }
-                    self.context = Array((self.context + [caption]).suffix(2))
-                    self.scheduleExpiration(caption.id, token: token)
-                } catch {
-                    guard !Task.isCancelled, self.generation == token else { return }
-                    await self.fail(error, token: token)
-                    return
-                }
-            }
-            guard self.generation == token else { return }
-            self.isTranslating = false
-            self.worker = nil
-        }
+        let captions = phrases.map { Caption(text: $0) }
+        history.append(contentsOf: captions)
+        if history.count > 300 { history.removeFirst(history.count - 300) }
+        guard let caption = captions.last else { return }
+        currentCaption = caption
+        scheduleExpiration(caption.id, token: generation)
     }
 
     private func scheduleExpiration(_ captionID: UUID, token: UUID) {

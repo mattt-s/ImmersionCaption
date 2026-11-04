@@ -1,6 +1,6 @@
 import Foundation
 
-/// Composition root: the only place that chooses concrete capture, recognition, and AI providers.
+/// Composition root: chooses capture and recognition providers and defers native window creation.
 @MainActor
 final class AppContainer: ObservableObject {
     let settings: AppSettings
@@ -9,9 +9,7 @@ final class AppContainer: ObservableObject {
 
     init() {
         let settings = AppSettings()
-        let translator = OllamaTranslationEngine(endpoint: { settings.endpoint }, model: { settings.model })
-        let session = CaptionSession(capture: CoreAudioTapCapture(), speech: AppleSpeechRecognizer(),
-                                     translator: translator)
+        let session = CaptionSession(capture: CoreAudioTapCapture(), speech: AppleSpeechRecognizer())
         self.settings = settings
         self.session = session
     }

@@ -2,154 +2,75 @@
 
 <img src="Resources/Artwork/AppIcon.png" alt="ImmersionCaption app icon" width="112" height="112">
 
-A native macOS app for learning English while listening to Mandarin audio from other applications. It turns application audio into English floating subtitles, with recognition and translation performed locally.
+A native macOS application displaying recognized Mandarin from application audio as floating captions. Capture and recognition run locally; the microphone is never used.
 
-**Status: local development app built and launched.** Version 0.4.0 removes character-count, duration, pause, and stable-text cuts. Available complete sentences take priority over commas; unfinished text carries across recognizer maintenance restarts. Core Audio audio-only capture and the generated app icon remain available; macOS 14.2+ is required. Permission-driven audio capture, sustained transcription, and visual overlay acceptance remain to be checked interactively. See [validation evidence](docs/VALIDATION.md) for current test/build results.
+**Version 0.5.0: captions only.** Translation, Ollama integration, prompts, the inference queue, bilingual display, and backend preferences have been removed. No Ollama installation or translation models are required. This change does not uninstall external applications or delete their models.
 
-## Implemented in source
+## Features
 
-- Core Audio process-tap capture of system/application output; no screen capture or microphone input.
-- On-device Mandarin (`zh-CN`) recognition through Apple's Speech framework, with no cloud fallback.
-- Local Ollama translation, defaulting to the installed `translategemma:4b` model.
-- A natural-English translation prompt with up to two previous translated phrases as context.
-- Start, pause, resume, stop, menu bar controls, and surfaced errors.
-- Floating, click-through subtitles on the primary display; top/middle/bottom placement, font size, background transparency, and optional Chinese text.
-- A native Finder/Dock app icon, built from the generated [master artwork](Resources/Artwork/AppIcon.png).
-- Persistent preferences; memory-only history capped at 300 entries; explicit text export.
-- Text-only translation check and overlay preview for setup.
-- Punctuation-based sentences/clauses, with complete sentences preferred and no character-count or timer cuts; a three-item pending queue; cancellation/generation checks that reject late results.
-
-These features are implemented; build, automated tests, and basic launch have been verified. The remaining manual acceptance checks are listed below. Embedded inference and model management are planned, not implemented.
-
-## Architecture
-
-![ImmersionCaption architecture diagram](docs/diagrams/architecture.svg)
-
-The caption session coordinates replaceable audio, speech, and translation providers. The current app uses local Apple speech recognition and a separate Ollama process; the gray section shows planned embedded inference and model management. See [ARCHITECTURE.md](ARCHITECTURE.md) for responsibilities, runtime data flow, and concurrency, or open the [editable diagram](docs/diagrams/architecture.mmd).
+- Core Audio process-tap capture of application/system output; no screen capture or microphone input.
+- On-device Mandarin (`zh-CN`) recognition through Apple's installed speech assets, with no cloud fallback.
+- Click-through floating captions across Spaces/fullscreen, font size, opacity, position presets, and preview.
+- Start/pause/resume/stop, menu bar controls, and visible errors.
+- Sentence-first punctuation, request continuation, and revision alignment to reduce replay.
+- Memory-only history of the latest 300 phrases; clear and explicit plain-text export.
 
 ## Requirements
 
-- macOS 14.2+; Apple Silicon recommended. An M2 Pro with 16 GB is a suitable initial target, but sustained audio performance has not been measured.
-- Xcode 15.2+ with Swift 5.9+ and a macOS 14.2+ SDK. A current Xcode compatible with your macOS is recommended. Old command-line tools are insufficient.
-- Apple's on-device Mandarin recognition assets. Availability varies by OS/language; the app refuses recognition if `supportsOnDeviceRecognition` is false.
-- Ollama running locally and a downloaded local model. No API key or paid service is used. Initial development detected `translategemma:4b` already installed.
+- macOS 14.2+ and Apple's installed on-device Mandarin recognition assets. Apple Silicon recommended.
+- Xcode 15.2+ and Swift 5.9+ for building. CaptionCore also supports the original Swift 5.3 compatibility checks.
+- There are no third-party source-package dependencies or inference services to configure.
 
-## Build and install locally
+Speech assets may need downloading through macOS Dictation settings before offline use. Recognition refuses to start when local Mandarin support is unavailable.
 
-Finish installing Xcode and launch it once to complete its setup. Select its command-line tools, either in Xcode Settings → Locations or:
+## Build and install
 
-```sh
-sudo xcode-select --switch /Applications/Xcode.app/Contents/Developer
-```
-
-From this repository:
+Complete Xcode setup and select its command-line tools. From the project root:
 
 ```sh
-scripts/check-environment.sh
 swift test --package-path Packages/CaptionCore
 swift test
 scripts/build-app.sh
-scripts/check-app-launch.sh
 open build/ImmersionCaption.app
 ```
 
-The build script creates an ad-hoc signed development `.app` with privacy descriptions and the speech entitlement. Use that bundle for permission testing. Opening Package.swift in Xcode is useful for editing/debugging; `swift run` is not the supported permission-testing installation path.
+The build creates an ad-hoc signed development bundle with the native icon at `build/ImmersionCaption.app`. Copy it into Applications to install locally. Quit older copies first and use one copy for privacy permissions. Launch the packaged app for permission testing; `swift run` is not the supported installation path.
 
-The same script builds `AppIcon.icns` from the project artwork using native macOS tools and includes it before signing. See [icon source and generation prompt](Resources/Artwork/README.md). No image-generation service is needed to build or run the app.
+## Usage and configuration
 
-Set `CODE_SIGN_IDENTITY` to an available development identity to use it instead of ad-hoc signing. Signed distribution, provisioning, hardened runtime, notarization, and App Store packaging have not been configured or validated. If speech authorization fails with an ad-hoc bundle, use an appropriately provisioned development identity and recheck its entitlement.
+1. Open the app and choose **Start captions**.
+2. Allow **Speech Recognition** and **System Audio Recording**. macOS may list the audio-only permission inside Privacy & Security → Screen & System Audio Recording → System Audio Recording Only. Screen recording and microphone access are not needed.
+3. Play Mandarin in another application. Recognized phrases appear directly in the overlay and history. **Hearing** shows the current, revisable hypothesis.
+4. Adjust font size, background opacity, and top/middle/bottom position in Settings. Preview works without recording.
+5. Pause/resume or stop from the window/menu bar. Closing the window leaves menu controls available; **Quit ImmersionCaption** exits.
 
-To install after a successful build, copy `build/ImmersionCaption.app` into Applications. Keep one copy for permission testing so macOS does not confuse development bundles with the same identifier.
+Captions disappear 12 seconds after their last committed update. History survives stop/start until cleared or the process exits. Export writes recognized text to a chosen location. Retired backend/bilingual preference keys are removed on settings initialization; appearance is preserved.
 
-`scripts/check-app-launch.sh` leaves the application open and verifies that its process has a visible window. It does not click controls, capture audio, or request macOS privacy permissions.
+## Caption policy and limitations
 
-## Configure
+The [policy diagram and walkthrough](docs/CAPTION_POLICY.md) describe exact decisions. An available sentence ending takes priority over commas. Otherwise a real final result commits remaining text, or an eligible comma/colon/semicolon at character position ten or later commits a partial clause. No maximum-length, duration, pause, or unchanged-text cuts are used.
 
-1. Open Ollama. If it is not running, use `ollama serve`. Do not start a second server if the Ollama app is already serving.
-2. Verify `ollama list` includes `translategemma:4b`. If needed, `ollama pull translategemma:4b` downloads it; this requires internet and model storage.
-3. In ImmersionCaption Settings, leave the default address `http://127.0.0.1:11434` and model `translategemma:4b`.
-4. Use **Translate sample** to test the service before capturing audio.
-5. If Mandarin recognition is unavailable, check System Settings → Keyboard → Dictation and enable/download Chinese (Mandarin, China mainland). This is a troubleshooting step, not a guarantee that macOS will provide an on-device model. The app checks actual availability at runtime.
+Punctuated partials can commit immediately; there is no stability confirmation gate. Timing/text-diff alignment tries to avoid replay and does not repair earlier captions. Unpunctuated speech may wait for a boundary or final result. Requests rotate every 45 seconds, carrying unfinished recognized text without overlapping audio buffering.
 
-Only explicit HTTP loopback addresses are accepted. HTTP redirects and proxies are disabled by the production adapter. Run a trusted Ollama installation with genuinely local models; a third-party service listening locally or an Ollama cloud-backed model is outside this application's privacy boundary. Do not configure cloud models.
+Every committed phrase enters history directly. When one callback emits multiple phrases, the overlay shows the last; history keeps all subject to its 300-entry limit. Six-line overlay layout may scale down or visually truncate long text. Pagination, dragging, per-app capture selection, automatic language detection, and semantic endpoint detection are not implemented.
 
-## Use
+Capture uses a private global stereo mix without changing default devices. Protected audio may be unavailable. Output-format changes and unexpected speech errors stop the session visibly. Permission recovery, sustained recognition, and overlay appearance across Spaces require interactive acceptance. This is a development build; distribution signing and notarization are not implemented.
 
-1. Start Mandarin playback in another app, then select **Start translating**.
-2. Allow **Speech Recognition** and **System Audio Recording** when macOS requests them. Screen recording and microphone access are not needed. The audio-only toggle may appear inside Privacy & Security → Screen & System Audio Recording → System Audio Recording Only. If you previously installed version 0.2 or earlier, macOS may retain its old screen-recording entry; you can disable that broader permission and allow audio-only access for this build. Quit older running copies before testing the replacement. Restart translation (or reopen the app) after changing permissions.
-3. Adjust the overlay in Settings; enable **Preview subtitle overlay** to see changes during silence. Disable preview when finished.
-4. Pause releases capture and recognition, discards pending translations, and hides the current subtitle. Resume starts fresh recognition/context; it does not replay audio heard while paused.
-5. Stop cancels processing. Closing the main window leaves menu bar controls available. Quit from the menu bar to exit.
-
-Subtitles disappear 12 seconds after their last update. History remains for the current app process, including across stop/start, until cleared. **Export** explicitly writes a plain-text copy to a location you choose.
-
-## Latency and translation quality
-
-See the [current caption policy diagram and walkthrough](docs/CAPTION_POLICY.md) for the exact recognition-to-translation decisions. The current policy does not confirm partial-result stability before committing punctuation; revision alignment only tries to avoid replaying consumed speech.
-
-Translation inputs follow recognized punctuation:
-
-- If a complete sentence is already available, it is sent intact, including its commas and closing quotation marks. Sentence-ending punctuation is searched throughout the available text, without a length limit.
-- If no sentence ending is available yet, a comma, colon, or semicolon may commit a clause after at least ten characters. This is a minimum for using that punctuation, not a maximum input length. Numeric separators such as `1,000` and `10:30` are preserved. Short comma fragments wait.
-- Character count, speech duration, gaps between words, and 650 ms of unchanged text do **not** trigger translation. The old Short/Balanced selector has been removed; saved values from older versions are ignored.
-- A real final recognition result commits any remaining unpunctuated utterance intact. The automatic 45-second maintenance restart no longer fabricates a final result or flushes a fragment; unfinished recognized text continues into the next request. Pause/stop discards unfinished text.
-
-This favors complete meaning over a fixed caption length. Text can wait longer if recognition supplies no punctuation or actual final result. Commas are heuristic clause cues, not a semantic completeness model, and partial punctuation may later change. Timings are used for revision alignment only. Request transitions still have a possible audio gap because there is no overlapping audio buffer; carrying text does not recover unheard audio.
-
-Subtitle wrapping and font scaling happen after translation. The overlay is still bounded to six English lines and three Chinese lines; very long translations can be visually truncated. Automatic pagination is not implemented. Long inputs can also exceed the local model's context/output capacity; there is no promise that arbitrary-length speech can be translated in one request.
-
-Only one translation runs at a time. At most three phrases wait behind it; overflow discards the oldest pending phrase and shows a skipped-phrase count. This limits accumulated backlog, not worst-case end-to-end latency. Steady speech can still outpace the model. The first translation may take several seconds to load the model.
-
-Prompts favor concise, natural spoken English, idiomatic equivalents, faithful meaning, and tone. They request one translation of the current fragment, no alternatives or repeated context, no invented continuation, and preservation of who said or did what. Temperature 0 reduces sampling variation; changed context can still change the wording, and these instructions do not guarantee accuracy. The splitter carries the remaining speech into later captions rather than truncating it; the existing overload policy can still skip queued phrases if the model cannot keep up. A 4B model can still misread ambiguity, alter nuance, or translate too literally. The eight public [quality cases](docs/translation-quality-cases.json) are human-review material, not an automated fluency score. Warm **text translation** requests measured 0.46–0.97 seconds across two initial runs; this excludes audio capture, ASR, segmentation, and display time.
-
-## Project structure
+## Project structure and verification
 
 ```text
-Package.swift                         macOS executable and adapter/session tests
-Packages/CaptionCore/                 Foundation-only models and policy tests
+Packages/CaptionCore/                 caption values, segmentation, revision alignment, domain tests
 Sources/ImmersionCaption/
-  App/                                composition root and application lifecycle
-  Application/                        engine ports and caption session orchestration
-  Infrastructure/                     capture, speech, Ollama, preferences
-  Presentation/                       SwiftUI controls, history, settings, AppKit overlay
-Resources/                            icon artwork, app identity, privacy descriptions, entitlements
-Tests/ImmersionCaptionTests/           audio-buffer, lifecycle, and HTTP contract tests
-scripts/                              build, environment, domain checks, local model smoke test
-docs/                                 validation results and translation review fixtures
+  App/                               composition root and lifecycle
+  Application/                       capture/speech ports and caption session
+  Infrastructure/                    Core Audio, Apple Speech, appearance preferences
+  Presentation/                      controls, settings, history, overlay
+Resources/                           artwork, privacy descriptions, entitlements
+Tests/ImmersionCaptionTests/          session, settings, startup, and PCM tests
+scripts/                             environment, build, launch, compatibility checks
+docs/                                policy, diagrams, verification record
 ```
 
-See [ARCHITECTURE.md](ARCHITECTURE.md) for data flow and replacement engines, and [AGENTS.md](AGENTS.md) for development rules.
+See [ARCHITECTURE.md](ARCHITECTURE.md), [AGENTS.md](AGENTS.md), and [validation evidence](docs/VALIDATION.md). `scripts/test-core-compat.sh` runs Foundation-only production checks. After building, `scripts/check-app-launch.sh` checks process/window metadata and leaves the app open; it does not grant permissions or test live capture.
 
-## Verification
-
-```sh
-# Runs production domain policies even with the original Swift 5.3 command-line tools:
-scripts/test-core-compat.sh
-
-# Sends only the public sample phrases to installed local TranslateGemma:
-scripts/smoke-translation.sh
-
-# Exercise the production Swift HTTP adapter against installed local TranslateGemma:
-IMMERSIONCAPTION_LIVE_TEST=1 swift test --filter LocalTranslationIntegrationTests
-```
-
-The smoke script uses the production Swift prompt builder and a Python standard-library HTTP client. The opt-in XCTest instead runs the production Swift HTTP adapter against local Ollama and checks that a short Chinese phrase returns English text; it skips by default so ordinary tests do not depend on a model server. Neither is an automated fluency assessment or a test of live audio, permissions, or overlay interaction. The full XCTest suites need modern Xcode.
-
-## Known limitations and roadmap
-
-- The current Apple Silicon bundle is an ad-hoc signed development build. Compilation, launch, signature checks, and automated tests pass; live audio, permission handling, sustained use, and visual overlay behavior still need manual acceptance. No notarized release has been produced.
-- On-device Mandarin availability is controlled by macOS. Direct model download/selection is not implemented.
-- Captures a global stereo mix of application output using a private, tap-only aggregate device, without changing your default audio devices. This process is excluded when it already has a Core Audio process object; the app itself does not play audio. There is no per-app selector, audio mixing control, or multi-display subtitle selector. If the tap format changes after switching an output device, translation stops with a restart message rather than decoding buffers with the wrong format.
-- Protected/DRM content or some application audio may be unavailable to capture.
-- The legacy Speech framework may end recognition or return service errors. Requests restart on final results and rotate periodically; unexpected errors stop the session visibly. Long-duration and silent-input behavior need device testing.
-- Partials can change after a phrase has been committed. Word timestamps help realign earlier text-length revisions without replaying consumed audio; missing/all-zero timings use text-diff anchors to follow consumed speech across revisions. Ambiguous or completely rewritten transcripts still require a conservative fallback. Displayed translations cannot be corrected retroactively, and revised/merged word boundaries remain imperfect.
-- The overlay supports presets, not dragging. Long text may scale down or be truncated within its bounded panel; use shorter phrases/smaller fonts.
-- No audio replay, VAD, translation streaming, glossary, language learning analytics, or global shortcuts.
-- No third-party source-package dependencies or analytics. The app stores preferences and explicitly exported history only; macOS/Ollama may have their own service logs.
-- Embedded inference (for example a suitable local llama.cpp/MLX adapter), app-managed models with checksum/license/disk-space handling, and a standalone offline installer remain future work. Apple assets and Ollama models must already be installed for offline operation today.
-
-## References and licensing
-
-The capture adapter follows [Apple's Core Audio process-tap guidance](https://developer.apple.com/documentation/coreaudio/capturing-system-audio-with-core-audio-taps), using `NSAudioCaptureUsageDescription` for audio-only authorization. There is no ScreenCaptureKit fallback on older macOS versions. Recognition checks [on-device capability](https://developer.apple.com/documentation/speech/sfspeechrecognizer/supportsondevicerecognition) and requires local requests. The translation adapter follows the [Ollama chat API](https://docs.ollama.com/api/chat) and [TranslateGemma prompt guide](https://ollama.com/library/translategemma).
-
-Application source is MIT licensed; see LICENSE. AI model weights and Apple/Ollama components have their own terms. No weights or external runtimes are bundled or redistributed.
+Audio and history are not automatically saved. Preferences use UserDefaults and history export is explicit. Logs contain lifecycle/error categories rather than audio/transcripts. Offline operation needs already installed Apple speech assets. Direct speech-model management and alternative embedded recognition engines remain planned.
