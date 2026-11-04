@@ -15,7 +15,6 @@ final class AppSettings: ObservableObject {
     @Published var position: SubtitlePosition { didSet { defaults.set(position.rawValue, forKey: "position") } }
     @Published var languageIdentifier: String { didSet { defaults.set(languageIdentifier, forKey: "languageIdentifier") } }
     @Published var clickThrough: Bool { didSet { defaults.set(clickThrough, forKey: "clickThrough") } }
-    @Published var keepOnscreen: Bool { didSet { defaults.set(keepOnscreen, forKey: "keepOnscreen") } }
     @Published var previewOverlay = false
     let languages: [RecognitionLanguage]
     private let defaults: UserDefaults
@@ -28,9 +27,8 @@ final class AppSettings: ObservableObject {
         languageIdentifier = RecognitionLanguage.matching(stored, in: availableLanguages)?.id
             ?? availableLanguages.first?.id ?? ""
         clickThrough = defaults.object(forKey: "clickThrough") as? Bool ?? false
-        keepOnscreen = defaults.bool(forKey: "keepOnscreen")
         // Retire settings from the removed backend and second subtitle line.
-        ["endpoint", "model", "bilingual"].forEach { defaults.removeObject(forKey: $0) }
+        ["endpoint", "model", "bilingual", "keepOnscreen"].forEach { defaults.removeObject(forKey: $0) }
         let storedSize = defaults.object(forKey: "fontSize") as? Double ?? 28
         let storedOpacity = defaults.object(forKey: "opacity") as? Double ?? 0.78
         fontSize = storedSize.isFinite ? min(52, max(16, storedSize)) : 28

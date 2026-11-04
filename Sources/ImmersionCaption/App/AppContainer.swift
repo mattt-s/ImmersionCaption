@@ -10,6 +10,7 @@ final class AppContainer: ObservableObject {
     init() {
         let settings = AppSettings(languages: AppleSpeechRecognizer.availableLanguages())
         let session = CaptionSession(capture: CoreAudioTapCapture(), speech: AppleSpeechRecognizer(),
+                                     makeActivityMonitor: { PCMActivityMonitor() },
                                      selectedLanguage: { settings.languageIdentifier })
         self.settings = settings
         self.session = session

@@ -21,10 +21,10 @@ final class SubtitleOverlayController {
         panel.hidesOnDeactivate = false
         panel.isReleasedWhenClosed = false
         panel.contentView = NSHostingView(rootView: SubtitleView(session: session, settings: settings))
-        session.$currentCaption.combineLatest(session.$state, settings.$previewOverlay, settings.$keepOnscreen)
-            .sink { [weak self] caption, state, preview, keep in
+        session.$isCaptionVisible.combineLatest(session.$state, settings.$previewOverlay)
+            .sink { [weak self] visible, state, preview in
                 guard let self else { return }
-                if caption != nil || preview || (keep && state == .running) { self.reposition(); self.panel.orderFrontRegardless() }
+                if visible || (preview && state != .running && state != .starting) { self.reposition(); self.panel.orderFrontRegardless() }
                 else { self.panel.orderOut(nil) }
             }.store(in: &subscriptions)
         settings.$clickThrough.sink { [weak self] value in

@@ -4,7 +4,7 @@
 
 A native macOS app displaying live captions for application audio in a user-selected spoken language. Capture and recognition run locally. No microphone, translation service, or Ollama installation is required.
 
-**Version 0.6.1: selectable languages and rolling live text.** Partial results appear immediately and corrections replace the current text in place. Punctuation and final results no longer gate display. The [research note](docs/LIVE_CAPTIONS_RESEARCH.md) explains the macOS Live Captions reference and the limits of that comparison.
+**Version 0.6.2: selectable languages and rolling live text.** Partial results appear immediately and corrections replace the current text in place. Punctuation and final results no longer gate display. The [research note](docs/LIVE_CAPTIONS_RESEARCH.md) explains the macOS Live Captions reference and the limits of that comparison.
 
 ## Features
 
@@ -12,7 +12,7 @@ A native macOS app displaying live captions for application audio in a user-sele
 - Spoken-language menu in the main window, settings, and menu bar. Options come from Apple Speech; on-device capability varies by language and Mac.
 - On-device recognition without cloud fallback. Language selection is explicit, not automatic detection.
 - Rolling, naturally wrapped text that supports revisions, scrolling, Follow live, and optional click-through.
-- Font size, background opacity, position presets, preview, and Keep captions onscreen.
+- Font size, background opacity, position presets, preview, and automatic hiding during silence.
 - Start/pause/resume/stop, menu controls, visible errors, and latest-300-block memory-only history with text export.
 
 ## Requirements
@@ -42,10 +42,10 @@ The build generates the icon and an ad-hoc signed development bundle at build/Im
 2. Allow Speech Recognition and System Audio Recording. The audio-only permission may appear under Privacy & Security → Screen & System Audio Recording → System Audio Recording Only. Screen and microphone permissions are not needed.
 3. Play audio in another application. Text appears as recognized, including unfinished speech; earlier words may change.
 4. To change language, pause or stop, choose another language, then resume/start. The live window starts fresh; existing history keeps its language labels.
-5. Leave **Follow live** on to track new text. Turn it off to scroll back. Disable **Click-through overlay** for interaction. The default overlay is interactive.
-6. Adjust font, opacity, and position in Settings. Enable **Keep captions onscreen while running** to retain the window during inactivity. Preview works without recording.
+5. In interactive mode, leave **Follow live** on to track new text, or turn it off to scroll back. With **Click-through overlay** enabled, the header/toggle and scrollbars are hidden and following is automatic.
+6. Adjust font, opacity, and position in Settings. Preview shows the overlay while stopped/paused without recording; it does not override automatic hiding during a running session.
 
-Closing the main window leaves menu controls available; Quit ImmersionCaption exits. By default the caption window hides 12 seconds after the last changed transcript; this is an idle-display heuristic. Pause/stop clears the live display but retains history. Clear affects history, and subsequent updates can add the active block again. Export writes the current text snapshots to a chosen location.
+Closing the main window leaves menu controls available; Quit ImmersionCaption exits. The entire caption window, including its background, hides after about one second without audible system output. Recognition continues. The window reappears when a changed recognition result arrives with recent audio; sound alone and late results in silence do not reveal old text. The former Keep Onscreen override is removed. Pause/stop clears the live display but retains history. Clear affects history, and subsequent updates can add the active block again. Export writes the current text snapshots to a chosen location.
 
 ## Display policy and limits
 
@@ -72,4 +72,4 @@ docs/                                research, policy, architecture diagrams, va
 
 Run scripts/test-core-compat.sh for Foundation-only domain checks. scripts/check-app-launch.sh checks process/window metadata after building and leaves the app open; it does not test live audio. See [validation evidence](docs/VALIDATION.md) and [development rules](AGENTS.md).
 
-Audio and history are not automatically saved. Preferences use UserDefaults; export is explicit. Logs contain lifecycle/error categories rather than audio/transcripts. Initial OS asset downloads may need internet; installed local assets are required for offline recognition. Removing the old translation integration does not uninstall external apps or their models.
+A passive PCM monitor uses a conservative -80 dBFS peak floor and a one-second grace to avoid flickering between words. It is an output-activity heuristic rather than voice detection; unusually quiet signals can fall below its floor. Audio and history are not automatically saved. Preferences use UserDefaults; export is explicit. Logs contain lifecycle/error categories rather than audio/transcripts. Initial OS asset downloads may need internet; installed local assets are required for offline recognition. Removing the old translation integration does not uninstall external apps or their models.

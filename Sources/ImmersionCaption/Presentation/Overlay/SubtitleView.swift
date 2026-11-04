@@ -12,15 +12,17 @@ struct SubtitleView: View {
         VStack {
             if settings.position != .top { Spacer(minLength: 0) }
             VStack(alignment: .leading, spacing: 10) {
-                HStack {
-                    Text("Live captions").font(.caption.weight(.semibold))
-                    Spacer()
-                    Toggle("Follow live", isOn: $followsLive)
-                        .toggleStyle(.switch).controlSize(.mini).font(.caption)
+                if !settings.clickThrough {
+                    HStack {
+                        Text("Live captions").font(.caption.weight(.semibold))
+                        Spacer()
+                        Toggle("Follow live", isOn: $followsLive)
+                            .toggleStyle(.switch).controlSize(.mini).font(.caption)
+                    }
+                    .foregroundStyle(.white.opacity(0.85))
                 }
-                .foregroundStyle(.white.opacity(0.85))
                 ScrollViewReader { reader in
-                    ScrollView(.vertical, showsIndicators: true) {
+                    ScrollView(.vertical, showsIndicators: !settings.clickThrough) {
                         VStack(alignment: .leading, spacing: 12) {
                             if session.displayCaptions.isEmpty {
                                 Text("Live captions appear here.")
@@ -38,13 +40,19 @@ struct SubtitleView: View {
                     .frame(height: min(260, settings.fontSize * 5))
                     .onAppear { reader.scrollTo(bottomAnchor, anchor: .bottom) }
                     .onChange(of: session.displayCaptions) { _, _ in
-                        if followsLive { reader.scrollTo(bottomAnchor, anchor: .bottom) }
+                        if settings.clickThrough || followsLive { reader.scrollTo(bottomAnchor, anchor: .bottom) }
+                    }
+                    .onChange(of: settings.clickThrough) { _, enabled in
+                        if enabled {
+                            followsLive = true
+                            reader.scrollTo(bottomAnchor, anchor: .bottom)
+                        }
                     }
                     .onChange(of: followsLive) { _, follow in
                         if follow { reader.scrollTo(bottomAnchor, anchor: .bottom) }
                     }
                     .onChange(of: settings.fontSize) { _, _ in
-                        if followsLive { reader.scrollTo(bottomAnchor, anchor: .bottom) }
+                        if settings.clickThrough || followsLive { reader.scrollTo(bottomAnchor, anchor: .bottom) }
                     }
                 }
             }

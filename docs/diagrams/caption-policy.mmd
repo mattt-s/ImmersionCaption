@@ -10,24 +10,31 @@ flowchart TD
     Ignore["Ignore obsolete event"]
     Update["Replace existing request snapshot<br/>or append a new request block<br/>Empty revision retracts a draft"]
     Changed{"Text or finality changed?"}
-    Duplicate["No extra row or timer reset"]
+    Duplicate["No extra history entry"]
     Publish["Update immediately<br/>History: newest 300 blocks<br/>Display: newest 3 current-run blocks"]
     Scroll["Wrap at selected font size<br/>Follow live: scroll to newest text<br/>Follow off: manual review"]
-    Idle["12 seconds without changed text:<br/>hide unless Keep Onscreen<br/>Pause/stop clears live display"]
+    Signal["Passively inspect captured PCM<br/>Record last signal above -80 dBFS<br/>Forward unchanged audio to speech"]
+    Quiet["Poll every 100 ms<br/>One second without audible output"]
+    Hide["Hide entire panel + background<br/>Keep history / recognition running"]
+    Audible{"Changed nonempty result<br/>with recent audio?"}
+    Show["Show whole panel<br/>Click-through: text only + auto-follow<br/>Interactive: Follow live + review"]
     Note["No punctuation or isFinal display gate<br/>Revisions keep identity and first-seen time<br/>Finality marks the same entry final"]
     Select --> Ready
     Ready -->|"No"| Error
-    Ready -->|"Yes"| Start --> Event --> Current
+    Ready -->|"Yes"| Start --> Signal --> Event --> Current
+    Signal -.-> Quiet --> Hide
     Current -->|"No"| Ignore
     Current -->|"Yes"| Update --> Changed
     Changed -->|"No"| Duplicate
-    Changed -->|"Yes"| Publish --> Scroll --> Idle
+    Changed -->|"Yes"| Publish --> Audible
+    Audible -->|"Yes"| Show --> Scroll
+    Audible -->|"No"| Hide
     Update -.-> Note
     classDef input fill:#eaf2ff,stroke:#3b67b1,color:#172b4d
     classDef policy fill:#e8f5f1,stroke:#23836d,color:#153e35
     classDef output fill:#f2ecfc,stroke:#815bb3,color:#382254
     classDef warning fill:#fff1df,stroke:#b9822d,color:#513b16
-    class Select,Ready,Start,Event input
+    class Select,Ready,Start,Signal,Event input
     class Current,Update,Changed policy
-    class Publish,Scroll,Idle output
+    class Publish,Scroll,Show,Quiet,Hide output
     class Error,Note warning

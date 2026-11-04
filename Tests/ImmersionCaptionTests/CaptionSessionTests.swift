@@ -7,7 +7,7 @@ import CaptionCore
 final class CaptionSessionTests: XCTestCase {
     func testUnpunctuatedDraftAppearsImmediatelyAndRevisionsReplaceIt() async {
         let speech = FakeSpeech()
-        let session = CaptionSession(capture: FakeCapture(), speech: speech, selectedLanguage: { "en-US" })
+        let session = CaptionSession(capture: FakeCapture(), speech: speech, makeActivityMonitor: { FakeAudioActivityMonitor() }, selectedLanguage: { "en-US" })
         await session.start()
         speech.emit("The cargo sheep")
         let original = session.currentCaption
@@ -23,7 +23,7 @@ final class CaptionSessionTests: XCTestCase {
 
     func testFinalUpdatesExistingBlockWithoutWaitingOrDuplicating() async {
         let speech = FakeSpeech()
-        let session = CaptionSession(capture: FakeCapture(), speech: speech, selectedLanguage: { "zh-CN" })
+        let session = CaptionSession(capture: FakeCapture(), speech: speech, makeActivityMonitor: { FakeAudioActivityMonitor() }, selectedLanguage: { "zh-CN" })
         await session.start()
         speech.emit("今天我们讨论")
         XCTAssertEqual(session.currentCaption?.text, "今天我们讨论")
@@ -36,7 +36,7 @@ final class CaptionSessionTests: XCTestCase {
 
     func testPunctuationDoesNotSplitDisplayOrHistory() async {
         let speech = FakeSpeech()
-        let session = CaptionSession(capture: FakeCapture(), speech: speech, selectedLanguage: { "zh-CN" })
+        let session = CaptionSession(capture: FakeCapture(), speech: speech, makeActivityMonitor: { FakeAudioActivityMonitor() }, selectedLanguage: { "zh-CN" })
         await session.start()
         speech.emit("一。二。三，四，五。")
         XCTAssertEqual(session.history.map(\.text), ["一。二。三，四，五。"])
@@ -45,7 +45,7 @@ final class CaptionSessionTests: XCTestCase {
 
     func testNewRequestsAccumulateRollingContextAndBoundHistory() async {
         let speech = FakeSpeech()
-        let session = CaptionSession(capture: FakeCapture(), speech: speech, selectedLanguage: { "ja-JP" })
+        let session = CaptionSession(capture: FakeCapture(), speech: speech, makeActivityMonitor: { FakeAudioActivityMonitor() }, selectedLanguage: { "ja-JP" })
         await session.start()
         for index in 1...305 {
             speech.utteranceID = UUID()
@@ -61,7 +61,7 @@ final class CaptionSessionTests: XCTestCase {
     func testLanguageChangesOnResumeAndOldLanguageDoesNotMixIntoDisplay() async {
         let speech = FakeSpeech()
         var language = "zh-CN"
-        let session = CaptionSession(capture: FakeCapture(), speech: speech, selectedLanguage: { language })
+        let session = CaptionSession(capture: FakeCapture(), speech: speech, makeActivityMonitor: { FakeAudioActivityMonitor() }, selectedLanguage: { language })
         await session.start()
         speech.emit("你好")
         await session.pause()
@@ -81,7 +81,7 @@ final class CaptionSessionTests: XCTestCase {
         let speech = FakeSpeech()
         let capture = FakeCapture()
         speech.startupError = SpeechError.localModelUnavailable(language: "Japanese")
-        let session = CaptionSession(capture: capture, speech: speech, selectedLanguage: { "ja-JP" })
+        let session = CaptionSession(capture: capture, speech: speech, makeActivityMonitor: { FakeAudioActivityMonitor() }, selectedLanguage: { "ja-JP" })
         await session.start()
         XCTAssertEqual(session.state, .failed)
         XCTAssertEqual(capture.startCount, 0)
@@ -90,7 +90,7 @@ final class CaptionSessionTests: XCTestCase {
 
     func testClearHistoryDoesNotHideCurrentRollingDisplay() async {
         let speech = FakeSpeech()
-        let session = CaptionSession(capture: FakeCapture(), speech: speech, selectedLanguage: { "en-US" })
+        let session = CaptionSession(capture: FakeCapture(), speech: speech, makeActivityMonitor: { FakeAudioActivityMonitor() }, selectedLanguage: { "en-US" })
         await session.start()
         speech.emit("Hello")
         let current = session.currentCaption
@@ -107,7 +107,7 @@ final class CaptionSessionTests: XCTestCase {
         let capture = FakeCapture()
         let speech = FakeSpeech()
         speech.holdStartup = true
-        let session = CaptionSession(capture: capture, speech: speech, selectedLanguage: { "zh-CN" })
+        let session = CaptionSession(capture: capture, speech: speech, makeActivityMonitor: { FakeAudioActivityMonitor() }, selectedLanguage: { "zh-CN" })
         let startup = Task { await session.start() }
         await waitUntil { speech.startup != nil }
         await session.stop()
@@ -120,7 +120,7 @@ final class CaptionSessionTests: XCTestCase {
 
     func testRestartRejectsOldRecognizerEvents() async {
         let speech = FakeSpeech()
-        let session = CaptionSession(capture: FakeCapture(), speech: speech, selectedLanguage: { "zh-CN" })
+        let session = CaptionSession(capture: FakeCapture(), speech: speech, makeActivityMonitor: { FakeAudioActivityMonitor() }, selectedLanguage: { "zh-CN" })
         await session.start()
         let oldCallback = speech.callback
         await session.pause()
@@ -136,7 +136,7 @@ final class CaptionSessionTests: XCTestCase {
     func testRecognitionFailureStopsBothAdapters() async {
         let speech = FakeSpeech()
         let capture = FakeCapture()
-        let session = CaptionSession(capture: capture, speech: speech, selectedLanguage: { "zh-CN" })
+        let session = CaptionSession(capture: capture, speech: speech, makeActivityMonitor: { FakeAudioActivityMonitor() }, selectedLanguage: { "zh-CN" })
         await session.start()
         speech.failure?(SpeechError.localModelUnavailable(language: "Chinese"))
         await waitUntil { session.state == .failed && !session.isTransitioning }
@@ -149,7 +149,7 @@ final class CaptionSessionTests: XCTestCase {
         let capture = FakeCapture()
         capture.holdStartup = true
         let speech = FakeSpeech()
-        let session = CaptionSession(capture: capture, speech: speech, selectedLanguage: { "zh-CN" })
+        let session = CaptionSession(capture: capture, speech: speech, makeActivityMonitor: { FakeAudioActivityMonitor() }, selectedLanguage: { "zh-CN" })
         let startup = Task { await session.start() }
         await waitUntil { capture.startup != nil }
         await session.stop()
@@ -163,7 +163,7 @@ final class CaptionSessionTests: XCTestCase {
     func testFailureCompletingAfterExplicitStopDoesNotResurfaceError() async {
         let capture = FakeCapture()
         let speech = FakeSpeech()
-        let session = CaptionSession(capture: capture, speech: speech, selectedLanguage: { "zh-CN" })
+        let session = CaptionSession(capture: capture, speech: speech, makeActivityMonitor: { FakeAudioActivityMonitor() }, selectedLanguage: { "zh-CN" })
         await session.start()
         capture.holdNextStop = true
         speech.failure?(SpeechError.localModelUnavailable(language: "Chinese"))
@@ -175,6 +175,81 @@ final class CaptionSessionTests: XCTestCase {
         XCTAssertNil(session.errorMessage)
     }
 
+
+    func testSilenceHidesOverlayAndLateFinalCannotReopenIt() async {
+        var clock: TimeInterval = 100
+        let activity = FakeAudioActivityMonitor()
+        activity.mark(at: clock)
+        let speech = FakeSpeech()
+        let session = CaptionSession(capture: FakeCapture(), speech: speech,
+            makeActivityMonitor: { activity }, selectedLanguage: { "en-US" }, now: { clock })
+        await session.start()
+        speech.emit("Hello")
+        XCTAssertTrue(session.isCaptionVisible)
+
+        // No further buffers or recognition events: the watchdog must still hide the panel.
+        clock = 102
+        await waitUntil { !session.isCaptionVisible }
+        XCTAssertEqual(session.history.first?.text, "Hello")
+        speech.emit("Hello.", isFinal: true)
+        XCTAssertFalse(session.isCaptionVisible)
+        XCTAssertEqual(session.history.first?.text, "Hello.")
+
+        // Resuming output alone must not reveal old text.
+        clock = 103
+        activity.mark(at: clock)
+        await Task.yield()
+        XCTAssertFalse(session.isCaptionVisible)
+        speech.utteranceID = UUID()
+        speech.emit("New speech")
+        XCTAssertTrue(session.isCaptionVisible)
+        await session.stop()
+    }
+
+    func testShortAudioGapsDoNotHideCaptionAndContinuousSoundKeepsItVisible() async throws {
+        var clock: TimeInterval = 100
+        let activity = FakeAudioActivityMonitor()
+        activity.mark(at: clock)
+        let speech = FakeSpeech()
+        let session = CaptionSession(capture: FakeCapture(), speech: speech,
+            makeActivityMonitor: { activity }, selectedLanguage: { "en-US" }, now: { clock })
+        await session.start()
+        speech.emit("A sentence")
+        clock = 100.6
+        try await Task.sleep(nanoseconds: 150_000_000)
+        XCTAssertTrue(session.isCaptionVisible)
+        activity.mark(at: clock)
+        clock = 101.2
+        try await Task.sleep(nanoseconds: 150_000_000)
+        XCTAssertTrue(session.isCaptionVisible)
+        clock = 102
+        await waitUntil { !session.isCaptionVisible }
+        await session.stop()
+    }
+
+    func testNewCaptureRunDoesNotReuseOldAudioActivity() async {
+        let old = FakeAudioActivityMonitor(), fresh = FakeAudioActivityMonitor()
+        var count = 0
+        let speech = FakeSpeech()
+        let session = CaptionSession(capture: FakeCapture(), speech: speech,
+            makeActivityMonitor: { count += 1; return count == 1 ? old : fresh },
+            selectedLanguage: { "en-US" }, now: { 100 })
+        old.mark(at: 100)
+        await session.start()
+        speech.emit("Old speech")
+        XCTAssertTrue(session.isCaptionVisible)
+        await session.pause()
+        XCTAssertFalse(session.isCaptionVisible)
+        await session.start()
+        old.mark(at: 100)
+        speech.utteranceID = UUID()
+        speech.emit("Late text before new audio")
+        XCTAssertFalse(session.isCaptionVisible)
+        fresh.mark(at: 100)
+        speech.emit("Actual new speech")
+        XCTAssertTrue(session.isCaptionVisible)
+        await session.stop()
+    }
 
     private func waitUntil(_ predicate: () -> Bool, file: StaticString = #filePath, line: UInt = #line) async {
         for _ in 0..<200 {
@@ -227,4 +302,18 @@ private final class FakeSpeech: SpeechRecognizing {
     func emit(_ text: String, isFinal: Bool = false) {
         callback?(TranscriptEvent(utteranceID: utteranceID, text: text, isFinal: isFinal))
     }
+}
+
+/// Locking matches the port's capture/MainActor ownership without retaining audio.
+private final class FakeAudioActivityMonitor: AudioActivityMonitoring, @unchecked Sendable {
+    private let lock = NSLock()
+    private var value: TimeInterval?
+    var lastAudibleTime: TimeInterval? {
+        lock.lock(); defer { lock.unlock() }
+        return value
+    }
+    func mark(at time: TimeInterval) {
+        lock.lock(); value = time; lock.unlock()
+    }
+    func consume(_ sample: CMSampleBuffer) { mark(at: ProcessInfo.processInfo.systemUptime) }
 }

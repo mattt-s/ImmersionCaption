@@ -15,6 +15,7 @@ final class AppSettingsTests: XCTestCase {
         defer { defaults.removePersistentDomain(forName: suite) }
         defaults.set("old", forKey: "model")
         defaults.set(true, forKey: "bilingual")
+        defaults.set(true, forKey: "keepOnscreen")
         defaults.set(36.0, forKey: "fontSize")
         defaults.set("en_US", forKey: "languageIdentifier")
         let settings = AppSettings(languages: languages, defaults: defaults)
@@ -23,13 +24,12 @@ final class AppSettingsTests: XCTestCase {
         XCTAssertEqual(settings.fontSize, 36)
         XCTAssertNil(defaults.object(forKey: "model"))
         XCTAssertNil(defaults.object(forKey: "bilingual"))
+        XCTAssertNil(defaults.object(forKey: "keepOnscreen"))
         XCTAssertFalse(settings.clickThrough)
-        settings.keepOnscreen = true
         settings.clickThrough = true
         settings.languageIdentifier = "zh-CN"
         let restored = AppSettings(languages: languages, defaults: defaults)
         XCTAssertEqual(restored.languageIdentifier, "zh-CN")
-        XCTAssertTrue(restored.keepOnscreen)
         XCTAssertTrue(restored.clickThrough)
     }
 

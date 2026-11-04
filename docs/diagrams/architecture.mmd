@@ -6,9 +6,10 @@ flowchart LR
         Controls["Main window + menu bar<br/>Spoken-language picker<br/>Start / pause / resume / stop"]
         Overlay["Rolling caption overlay<br/>Immediate revisable text<br/>Wrap + scroll + Follow live"]
         History["History + text export<br/>Latest 300 request snapshots"]
-        Session["CaptionSession · MainActor<br/>Locale snapshot + lifecycle<br/>Independent display/history buffers"]
+        Session["CaptionSession · MainActor<br/>Locale + lifecycle + visibility<br/>Independent display/history buffers"]
         Core["CaptionCore · Foundation<br/>Caption + LiveTranscript<br/>SessionState"]
-        Settings["AppSettings<br/>Language + appearance<br/>Keep Onscreen + click-through"]
+        Settings["AppSettings<br/>Language + appearance<br/>Click-through + preview"]
+        Activity["AudioActivityMonitoring<br/>PCMActivityMonitor<br/>Passive last-audible timestamp"]
         Capture["SystemAudioCapturing<br/>CoreAudioTapCapture"]
         Speech["SpeechRecognizing<br/>AppleSpeechRecognizer<br/>Selected local locale"]
     end
@@ -26,7 +27,9 @@ flowchart LR
     Session -->|"snapshot rules"| Core
     Session -->|"start / stop"| Capture
     Session -->|"locale + start / stop"| Speech
-    Capture -->|"owning audio buffers"| Speech
+    Capture -->|"observe PCM in receiver"| Activity
+    Activity -->|"unchanged audio"| Speech
+    Session -->|"poll activity / hide panel"| Activity
     Capture -->|"native API"| Audio
     Speech -->|"local API + catalog"| Native
     Speech -->|"partial / final text"| Session
@@ -37,4 +40,4 @@ flowchart LR
     class Session,Container application
     class Controls,Overlay,History presentation
     class Core domain
-    class Settings,Capture,Speech adapter
+    class Settings,Capture,Speech,Activity adapter

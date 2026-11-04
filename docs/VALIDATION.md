@@ -1,5 +1,18 @@
 # Validation record
 
+## 0.6.2: click-through controls and silent-output hiding — 2026-11-04 (Asia/Tokyo)
+
+Click-through mode now hides the header/Follow live toggle and scrollbars, with automatic following. Removed Keep Onscreen and its saved preference. A passive per-capture PCM activity monitor and one bounded visibility task hide the full panel after about one second of silence, without modifying recognition. New recognized text plus recent audio reopens it; late results in silence and sound alone do not. Explicit preview applies only outside running/starting states.
+
+**Verified for 0.6.2, build 9:**
+
+- **32 app tests and 8 domain tests passed: 40 total, zero failures.** New fixtures cover silent versus audible PCM, negative samples, second-channel planar audio, Float64/Int16 formats, quiet/nonfinite samples, silent callback stoppage, short gaps, late final results, sound-only resumption, newly recognized speech, and fresh monitor ownership across runs. Existing history/lifecycle/local-language tests pass.
+- Release build, ad-hoc signature verification, privacy property-list checks, and the new-instance launch/window check passed. The launch check leaves the app open without starting capture.
+- Architecture and policy diagrams were regenerated and their PNGs visually inspected. SVG XML, 30 local documentation links, shell syntax, and Git whitespace checks passed.
+- The first test compile exposed an unsupported Float64 fixture accessor; the fixture was corrected to use its raw audio plane before the passing runs. No unresolved test failures remain.
+
+Live playback, acoustic thresholds on the user's applications, and visual silence/resumption still require interactive acceptance; synthetic PCM and coordinator fixtures do not prove every real audio-source behavior.
+
 ## 0.6.1: filter language menus — 2026-11-04 (Asia/Tokyo)
 
 All shared language menus now omit locales that do not advertise on-device support. Saved selections are resolved against the filtered catalog, including fallback when a previously selected locale becomes unavailable. An all-unavailable catalog produces the same explicit empty state as an empty catalog. Existing settings tests now cover these cases. Caption display and recognition behavior are unchanged.
@@ -21,4 +34,4 @@ Verified for this implementation:
 
 Earlier version evidence remains in Git history and is not proof of this implementation.
 
-Interactive acceptance remains necessary for actual language assets/permissions, multilingual continuous audio quality, revisable overlay scrolling and Follow live, position/font changes, Keep Onscreen/click-through, pause/resume language changes, device switching, and Spaces/fullscreen. A native capability query and synthetic tests do not establish end-to-end recognition quality or equivalence to Apple's private Live Captions implementation.
+Interactive acceptance remains necessary for actual language assets/permissions, multilingual continuous audio quality, revisable overlay scrolling and Follow live, position/font changes, silence hiding/click-through, pause/resume language changes, device switching, and Spaces/fullscreen. A native capability query and synthetic tests do not establish end-to-end recognition quality or equivalence to Apple's private Live Captions implementation.

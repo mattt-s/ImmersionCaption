@@ -28,7 +28,8 @@ struct SettingsView: View {
                 Picker("Position", selection: $settings.position) {
                     ForEach(SubtitlePosition.allCases) { Text($0.title).tag($0) }
                 }
-                Toggle("Keep captions onscreen while running", isOn: $settings.keepOnscreen)
+                Text("Captions and background hide after a short silence and return with newly recognized speech.")
+                    .font(.caption).foregroundStyle(.secondary)
                 Toggle("Click-through overlay", isOn: $settings.clickThrough)
                 Text("Turn off click-through to scroll back or pause Follow live in the caption window.")
                     .font(.caption).foregroundStyle(.secondary)

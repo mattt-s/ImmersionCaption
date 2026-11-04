@@ -26,3 +26,10 @@ protocol SpeechRecognizing: AnyObject {
     var audioReceiver: (CMSampleBuffer) -> Void { get }
     func stop()
 }
+
+/// Passive, thread-safe audio activity measurement. Timestamps use system uptime;
+/// the monitor inspects captured output without changing the recognition stream.
+protocol AudioActivityMonitoring: AnyObject, Sendable {
+    var lastAudibleTime: TimeInterval? { get }
+    func consume(_ sample: CMSampleBuffer)
+}
