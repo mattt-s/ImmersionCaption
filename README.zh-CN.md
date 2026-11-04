@@ -52,6 +52,10 @@ open build/ImmersionCaption.app
 
 当前安装包用于开发测试：默认采用 ad-hoc 应用签名，.pkg 未签名，两个安装包均未经公证。面向分发的 Developer ID 签名和公证仍在计划中。若已有证书，可分别通过 CODE_SIGN_IDENTITY 和 INSTALLER_SIGN_IDENTITY 配置应用及安装器签名；公证仍需单独完成。打包脚本不会自动安装或启动应用。
 
+## 发布新版本
+
+维护者和 AI coding agent 请参阅[Release 发布指南](docs/RELEASING.md)，按流程完成 GitHub CLI 授权、打包、草稿上传、校验与下载验证、正式发布和文档更新。[AGENTS.md](AGENTS.md) 同时记录了必须遵守的关键规则。
+
 ## 使用方法
 
 应用中的控件名称目前为英文，以下保留原名称并附上中文说明。

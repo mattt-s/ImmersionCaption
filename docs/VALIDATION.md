@@ -1,5 +1,11 @@
 # Validation record
 
+## Release runbook documentation — 2026-11-05 (Asia/Tokyo)
+
+Added [docs/RELEASING.md](RELEASING.md) with the actual CLI/device authorization, packaging, draft-upload, digest verification, publication, public-download, and documentation workflow. AGENTS.md now records the required release practices; both READMEs link to the guide. The guide covers missing CLI/API authentication, terminal-generated device codes, temporary tool paths, partial-upload recovery, version/tag integrity, credential handling, and the distinction between ad-hoc integrity checks and Gatekeeper approval.
+
+Verified all nine Bash command examples with the system Bash syntax checker and compiled the embedded Python verifier. Checked local Markdown links and README image paths. Read-only GitHub metadata checks confirmed the existing v0.7.1 tag still points to b58ce7930e7e1391e55b8953a2747996ee8f58eb, with the expected three uploaded attachments, sizes, and SHA-256 digests matching local originals. Creation/publication examples were syntax-checked only; the existing release and artifacts were not modified or republished. No application code changed, so app builds and runtime tests were not repeated.
+
 ## 0.7.1 GitHub Release — 2026-11-05 (Asia/Tokyo)
 
 Published [ImmersionCaption v0.7.1](https://github.com/mattt-s/ImmersionCaption/releases/tag/v0.7.1) with the verified arm64 PKG, DMG, and SHA-256 file. The release tag points to b58ce7930e7e1391e55b8953a2747996ee8f58eb, which includes the packaging script; application version/build remain 0.7.1/build 11. Both READMEs link to the release and its individual assets.

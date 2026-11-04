@@ -52,6 +52,10 @@ Names reflect the app version and actual binary architecture. The current arm64 
 
 These are development packages: the app is ad-hoc signed by default, the .pkg is unsigned, and neither artifact is notarized. Developer ID distribution signing and notarization remain planned. If certificates are available, CODE_SIGN_IDENTITY configures app signing and INSTALLER_SIGN_IDENTITY configures installer signing; notarization is a separate step. Packaging does not install or launch the app automatically.
 
+## Publishing a release
+
+Maintainers and coding agents should follow the [release guide](docs/RELEASING.md) for GitHub CLI authentication, packaging, draft uploads, checksum/download verification, publication, and documentation updates. The key requirements are also recorded in [AGENTS.md](AGENTS.md).
+
 ## Usage
 
 1. Choose **Spoken language**, matching the audio you intend to play, then **Start captions**.
